@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { toast, Toaster } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import DashboardChart from '@/components/DashboardChart';
+import DashboardChart from '@/components/dashboard/chart';
 
 const tabs = [
   { name: 'Clients', path: 'clients' },
