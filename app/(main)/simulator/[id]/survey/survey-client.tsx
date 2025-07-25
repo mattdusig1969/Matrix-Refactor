@@ -222,7 +222,12 @@ export default function SurveyClient({ initialSurvey, initialQuestions, params }
     // Create a new array to avoid direct mutation
     const newParsedQuestions = [...parsedQuestions];
     // Replace the question at the given index with the value from the edit state
-    newParsedQuestions[index] = editValue;
+    // Preserve id and question_options from the original question
+    newParsedQuestions[index] = {
+      ...editValue,
+      id: parsedQuestions[index].id,
+      question_options: parsedQuestions[index].question_options
+    };
 
     // Update the state for the parsed questions list
     setParsedQuestions(newParsedQuestions);
