@@ -1,7 +1,7 @@
 // app/simulator/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Card,
@@ -18,24 +18,30 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { toast, Toaster } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import DashboardChart from '@/components/dashboard/chart';
-import { toast } from 'react-hot-toast';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const navItems = [
-  { href: '/simulator', label: 'Dashboard' },
-  { href: '/simulator/new', label: 'Create Survey' },
-  // Add more navigation items as needed
+const tabs = [
+  { name: 'Clients', path: 'clients' },
+  { name: 'Surveys', path: 'surveys' },
+  { name: 'Results', path: 'results' },
+  { name: 'Settings', path: 'settings' }
 ];
 
 export const dynamic = 'force-dynamic';
 
-export default function SimulatorDashboard() {
+export default function ClientsPage() {
+  const [formData, setFormData] = useState({ first_name: '', last_name: '', email: '', company_id: '' });
+  const [companies, setCompanies] = useState<{ id: string; company_name: string }[]>([]);
+  const [clients, setClients] = useState<
+    { id: string; first_name: string; last_name: string; email: string; company: { company_name: string } | null }[]
+  >([]);
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [surveys, setSurveys] = useState<
     {
       id: string;
@@ -63,12 +69,10 @@ export default function SimulatorDashboard() {
     }[]
   >([]);
   const [statusFilter, setStatusFilter] = useState('live');
-  const [companies, setCompanies] = useState<{ id: string; company_name: string }[]>([]);
-  const [companyFilter, setCompanyFilter] = useState('all');
   const [adminUsers, setAdminUsers] = useState<{ id: string; first_name: string; last_name: string; email?: string }[]>([]);
   const [adminFilter, setAdminFilter] = useState('all'); // will set to user after auth
   const [menuOpen, setMenuOpen] = useState(false);
-  const [clients, setClients] = useState<{ id: string; company_id: string }[]>([]);
+  const [clientsData, setClientsData] = useState<{ id: string; company_id: string }[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<string | null>(null);
@@ -195,7 +199,7 @@ export default function SimulatorDashboard() {
       if (clientsError) {
         console.error('Error fetching clients:', clientsError);
       } else {
-        setClients(clientsData || []);
+        setClientsData(clientsData || []);
       }
 
       // Fetch users from our API route (which uses service role key server-side)
@@ -270,7 +274,7 @@ export default function SimulatorDashboard() {
   });
 
   const getCompanyName = (survey) => {
-    const client = clients.find(c => c.id === survey.client_id);
+    const client = clientsData.find(c => c.id === survey.client_id);
     const company = companies.find(co => co.id === client?.company_id);
     return company?.company_name || '—';
   };
