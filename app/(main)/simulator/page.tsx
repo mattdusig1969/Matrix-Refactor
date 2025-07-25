@@ -500,8 +500,8 @@ export default function SimulatorDashboard() {
                   let companyId = survey.client?.company_id;
 
                   // Fallback: if survey.client is missing, try to get client from clients array
-                  if (!companyId && survey.client_id && clients.length > 0) {
-                    const client = clients.find(c => String(c.id) === String(survey.client_id));
+                  if (!companyId && survey.client?.id && clients.length > 0) {
+                    const client = clients.find(c => String(c.id) === String(survey.client.id));
                     companyId = client?.company_id;
                   }
 
