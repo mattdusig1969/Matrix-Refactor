@@ -360,6 +360,6 @@ export default function NewSimulatorSurveyPage() {
           </Button>
         </CardContent>
       </Card>
-    </form> {/* Added a comment here to trigger a new build */}
+    </form>
   );
 }
