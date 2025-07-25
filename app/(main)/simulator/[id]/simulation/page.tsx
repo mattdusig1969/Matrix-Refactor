@@ -23,7 +23,14 @@ const supabase = createClient(
 
 // --- Helper Functions for Prompt Generation ---
 const createQuestionList = (questions) => {
-  return questions.map(q => `Question ${q.question_number}: "${q.question_text}" (Type: ${q.type})`).join('\n');
+  return questions.map(q => {
+    let base = `Question ${q.question_number}: "${q.question_text}" (Type: ${q.type})`;
+    if (q.type !== "input" && Array.isArray(q.options)) {
+      base += `\nAllowed options:\n${q.options.map(opt => `- ${opt}`).join('\n')}`;
+      base += `\nIMPORTANT: For this question, you MUST select from the provided options and use the option text exactly as shown. Do NOT invent, rephrase, or abbreviate options.`;
+    }
+    return base;
+  }).join('\n');
 };
 
 const generatePersonas = (options) => {
@@ -63,7 +70,8 @@ const AudienceStep = ({
   savedAudiences, handleLoadAudience, selectedCountryId, handleCountryChange,
   countries, fieldsByCategory, selectedCategory, setSelectedCategory,
   selectedField, setSelectedField, selectedOptions, toggleOption,
-  audienceName, setAudienceName, handleSaveAudience, disabled
+  audienceName, setAudienceName, handleSaveAudience, disabled,
+  personaTemplates // <-- ADD THIS
 }) => (
   <fieldset disabled={disabled} className="bg-white shadow-lg rounded-lg p-6 border disabled:opacity-60">
     <div className="flex items-center mb-4 pb-2 border-b">
@@ -119,6 +127,54 @@ const AudienceStep = ({
             className="w-full h-48 border rounded-md p-3 shadow-sm"
             placeholder="e.g., A successful businesswoman in her late 30s, living in a major city, who values luxury and cultural experiences on her family vacations."
         />
+        <div className="flex gap-2 mt-2">
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            onClick={async () => {
+              // Save to current survey
+              const { error } = await supabase
+                .from('surveys')
+                .update({ persona_description: personaText })
+                .eq('id', surveyId);
+              if (error) toast.error("Failed to save persona.");
+              else toast.success("Persona saved to this survey!");
+            }}
+          >
+            Save
+          </button>
+          <button
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            onClick={async () => {
+              const name = prompt("Template name?");
+              if (!name) return;
+              const { error } = await supabase
+                .from('persona_templates')
+                .insert({ name, description: personaText });
+              if (error) toast.error("Failed to save template.");
+              else toast.success("Persona template saved!");
+              // Optionally: refresh templates list here
+            }}
+          >
+            Save Template
+          </button>
+          <Select onValueChange={async (templateId) => {
+            const { data } = await supabase
+              .from('persona_templates')
+              .select('*')
+              .eq('id', templateId)
+              .single();
+            if (data) setPersonaText(data.description);
+          }}>
+            <SelectTrigger className="w-48 bg-white ml-2">
+              <SelectValue placeholder="Load template..." />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              {personaTemplates.map(tpl => (
+                <SelectItem key={tpl.id} value={tpl.id}>{tpl.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     )}
   </fieldset>
@@ -228,6 +284,7 @@ export default function SimulationPage({ params }) {
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [surveyMode, setSurveyMode] = useState(''); // <-- Add survey_mode to your state declarations at the top
   const audioRef = useRef(null);
+  const [personaTemplates, setPersonaTemplates] = useState([]); // <-- ADD THIS
 
   // Fetch initial data for the page
   useEffect(() => {
@@ -416,10 +473,14 @@ const refreshSimulationResults = async () => {
         ---
         Please generate a SINGLE, unique, and realistic simulated survey response for the survey titled "${survey.title}".
         
+        For all questions except those of type "input", you MUST select from the provided answer options and use the option text exactly as shown in the answer option. Do NOT invent, rephrase, or abbreviate options.
+
         Here are the survey questions. You must provide an answer for EACH question using the exact question_number:
         ---
         ${questionList}
-        ---
+        ---        ---
+                ${questionList}
+                ---
 
         Your response MUST be a valid JSON object with this exact structure:
         {
@@ -587,6 +648,18 @@ const refreshSimulationResults = async () => {
     URL.revokeObjectURL(url);
   };
 
+  // Fetch persona templates on mount
+  useEffect(() => {
+    async function fetchPersonaTemplates() {
+      const { data, error } = await supabase
+        .from('persona_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error) setPersonaTemplates(data || []);
+    }
+    fetchPersonaTemplates();
+  }, []);
+
   return (
     <div className="p-8 bg-slate-100 min-h-screen">
       {/* Main Navigation Tabs */}
@@ -671,6 +744,7 @@ const refreshSimulationResults = async () => {
                   setAudienceName={setAudienceName}
                   handleSaveAudience={handleSaveAudience}
                   disabled={!surveyId}
+                  personaTemplates={personaTemplates} // <-- ADD THIS LINE
               />
               <SimulationControls 
                   simulationCount={simulationCount}
