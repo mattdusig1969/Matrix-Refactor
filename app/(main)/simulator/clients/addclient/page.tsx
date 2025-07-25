@@ -155,7 +155,7 @@ export default function ClientsPage() {
                 >
                   {addingCompany ? 'Adding...' : 'Save'}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => setShowAddCompany(false)}>
+                <Button type="button" variant="outline" onClick={() => setShowAddCompany(false)}>
                   Cancel
                 </Button>
               </div>
