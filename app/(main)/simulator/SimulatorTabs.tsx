@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { simulatorTabs } from './tabs';
 
-export default function SimulatorTabs({ id, surveyType }) {
+interface SimulatorTabsProps {
+  id: any;
+  surveyType: any;
+  active: string; // <-- ADD THIS LINE
+}
+
+export default function SimulatorTabs({ id, surveyType }: SimulatorTabsProps) {
   const pathname = usePathname();
   // Hide Modules and Ad Code if mode is Simulator
   const surveyTabs =
