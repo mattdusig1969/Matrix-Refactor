@@ -301,7 +301,7 @@ export default function NewSimulatorSurveyPage() {
           />
           <Textarea
             required
-            placeholder={`Paste Q&A blocks:\nQ: What is your favorite color?\nA: Red\nA: Blue`}
+            placeholder={`Paste Q&A blocks:\nQ: What is your favorite color?\nType: single_select_radio\nA: Red\nA: Blue`}
             rows={10}
             value={questions}
             onChange={(e) => setQuestions(e.target.value)}
