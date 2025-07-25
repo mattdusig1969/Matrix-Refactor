@@ -167,8 +167,6 @@ export default function GeneralTab({ params }) {
     }
   };
 
-  console.log('Survey type:', formData.type);
-
   if (loading) return <p className="p-4 text-center">Loading...</p>;
   if (error) return <p className="p-4 text-center text-red-500">{error}</p>;
 
