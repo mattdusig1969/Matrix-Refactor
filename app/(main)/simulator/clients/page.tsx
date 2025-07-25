@@ -26,7 +26,13 @@ export default function ClientsPage() {
     const fetchClients = async () => {
       const { data, error } = await supabase
         .from('clients')
-        .select('id, first_name, last_name, email, company:company_id(company_name)');
+        .select(`
+          id, 
+          first_name, 
+          last_name, 
+          email, 
+          company:company_id (company_name)
+        `);
       if (error) {
         toast.error('Failed to fetch clients: ' + error.message);
       } else if (data) {
