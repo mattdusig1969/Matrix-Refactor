@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ShadButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "outline" | "ghost" | "link";
+  variant?: "default" | "outline"; // Remove "ghost" and "link"
   size?: "sm" | "md" | "lg";
   children: React.ReactNode;
 }
