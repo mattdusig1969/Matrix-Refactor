@@ -69,6 +69,7 @@ export default function ClientsPage() {
     }[]
   >([]);
   const [statusFilter, setStatusFilter] = useState('live');
+  const [companyFilter, setCompanyFilter] = useState('all');
   const [adminUsers, setAdminUsers] = useState<{ id: string; first_name: string; last_name: string; email?: string }[]>([]);
   const [adminFilter, setAdminFilter] = useState('all'); // will set to user after auth
   const [menuOpen, setMenuOpen] = useState(false);
