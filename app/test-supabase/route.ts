@@ -2,8 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
-  // Defer initialization to runtime
+  // INITIALIZE CLIENT HERE, INSIDE THE HANDLER
   const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   
   try {

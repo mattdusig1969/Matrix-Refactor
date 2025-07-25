@@ -21,11 +21,6 @@ import Link from 'next/link';
 import { toast, Toaster } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 const tabs = [
   { name: 'Clients', path: 'clients' },
   { name: 'Surveys', path: 'surveys' },
@@ -36,6 +31,11 @@ const tabs = [
 export const dynamic = 'force-dynamic';
 
 export default function ClientsPage() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const [formData, setFormData] = useState({ first_name: '', last_name: '', email: '', company_id: '' });
   const [companies, setCompanies] = useState<{ id: string; company_name: string }[]>([]);
   const [clients, setClients] = useState<

@@ -20,6 +20,10 @@ const tabs = [
 export const dynamic = 'force-dynamic';
 
 export default function ClientsPage() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
