@@ -52,8 +52,8 @@ export default function AddClientPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormData(prev => ({ ...prev, company_id: e.target.value }));
+  const handleCompanyChange = (value: string) => {
+    setFormData(prev => ({ ...prev, company_id: value }));
   };
 
   const handleAddCompany = async (e: FormEvent) => {
@@ -128,19 +128,18 @@ export default function AddClientPage() {
         </div>
         <div>
           <label className="text-sm font-medium block mb-1">Company</label>
-          <select
-            name="company_id"
-            value={formData.company_id}
-            onChange={handleCompanyChange}
-            className="w-full border rounded px-2 py-1"
-          >
-            <option value="">Select a company...</option>
-            {companies.map(company => (
-              <option key={company.id} value={company.id}>
-                {company.company_name}
-              </option>
-            ))}
-          </select>
+          <Select name="company_id" value={formData.company_id} onValueChange={handleCompanyChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a company..." />
+            </SelectTrigger>
+            <SelectContent>
+              {companies.map(company => (
+                <SelectItem key={company.id} value={company.id}>
+                  {company.company_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="mt-2">
             {!showAddCompany ? (
               <Button type="button" variant="outline" onClick={() => setShowAddCompany(true)}>
