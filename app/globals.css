@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+label {
+  @apply text-base md:text-lg font-semibold mb-1 block;
+}
+
+.form-label {
+  @apply text-base md:text-lg font-semibold mb-1 block;
+}
+
+input,
+select,
+textarea {
+  @apply border-gray-400;
+}
