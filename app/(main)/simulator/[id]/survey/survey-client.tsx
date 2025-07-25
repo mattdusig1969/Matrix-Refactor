@@ -47,7 +47,13 @@ export default function SurveyClient({ initialSurvey, initialQuestions, params }
   const [mode, setMode] = useState('build'); // 'build' or 'url'
   const [surveyUrl, setSurveyUrl] = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
-  const [editValue, setEditValue] = useState({ question: '', type: '', answers: [] });
+  const [editValue, setEditValue] = useState({ 
+    id: null,
+    question: '', 
+    type: '', 
+    answers: [],
+    question_options: {}
+  });
   const [optionsMenuIdx, setOptionsMenuIdx] = useState(null); // State for options menu
 
   // State for Survey Preview Overlay
