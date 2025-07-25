@@ -499,24 +499,10 @@ export default function SimulatorDashboard() {
                 {(() => {
                   let companyId = survey.client?.company_id;
 
-                  // Fallback: if survey.client is missing, try to get client from clients array
-                  if (!companyId && survey.client?.id && clients.length > 0) {
-                    const client = clients.find(c => String(c.id) === String(survey.client.id));
-                    companyId = client?.company_id;
-                  }
-
                   // Now lookup the company name
                   if (companyId && companies.length > 0) {
                     const company = companies.find(co => String(co.id) === String(companyId));
-                    // Debug output
-                    if (!company) {
-                      console.log('Company not found for companyId:', companyId, 'companies:', companies);
-                    }
                     return company?.company_name || '—';
-                  }
-                  // Debug output
-                  if (!companyId) {
-                    console.log('No companyId found for survey:', survey);
                   }
                   return '—';
                 })()}
