@@ -39,7 +39,7 @@ export async function updateUser(userId, formData) {
   );
 
   // Only include password if it's provided
-  const updateData = {
+  const updateData: any = {
     user_metadata: {
       first_name: formData.firstName,
       last_name: formData.lastName,
