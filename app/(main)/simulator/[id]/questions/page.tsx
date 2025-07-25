@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { simulatorTabs as tabs } from '../tabs';
 import SimulatorTabs from '../../SimulatorTabs';
 
 const supabase = createClient(
