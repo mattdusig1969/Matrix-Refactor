@@ -11,7 +11,7 @@ export default function ShadButton({ variant = "default", size = "md", children,
   return (
     <Button
       variant={variant}
-      size={size}
+      size={size === "md" ? "default" : size} // Map "md" to "default"
       className={cn("rounded-md", className)}
       {...props}
     >
