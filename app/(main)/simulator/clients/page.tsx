@@ -99,7 +99,7 @@ export default function ClientsPage() {
                 <td className="p-2">{client.company?.company_name || ''}</td>
                 <td className="p-2">
                   <Link href={`/simulator/clients/edit/${client.id}`}>
-                    <Button variant="outline" size="sm">Edit</Button>
+                    <Button variant="outline">Edit</Button>
                   </Link>
                 </td>
               </tr>
