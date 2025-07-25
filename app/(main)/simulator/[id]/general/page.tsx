@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { simulatorTabs } from './tabs';
 import SimulatorTabs from '../../SimulatorTabs';
 
 // This client uses the public ANON key and is subject to RLS policies.
