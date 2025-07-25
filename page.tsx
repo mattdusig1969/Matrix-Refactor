@@ -322,7 +322,7 @@ export default function SimulationPage({ params }) {
   const handleCountryChange = (countryId) => { 
     setSelectedCountryId(countryId); 
     setSelectedOptions({}); 
-    toast.info("Targeting options cleared for new country.");
+    toast.success("Targeting options cleared for new country.");
   };
 
   const toggleOption = useCallback((field, option) => { 
