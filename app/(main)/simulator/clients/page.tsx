@@ -16,6 +16,8 @@ const tabs = [
   { name: 'Clients', path: 'clients' }
 ];
 
+export const dynamic = 'force-dynamic';
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<
     { id: string; first_name: string; last_name: string; email: string; company: { company_name: string } | null }[]

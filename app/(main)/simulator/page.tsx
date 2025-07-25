@@ -33,6 +33,8 @@ const navItems = [
   // Add more navigation items as needed
 ];
 
+export const dynamic = 'force-dynamic';
+
 export default function SimulatorDashboard() {
   const [surveys, setSurveys] = useState<
     {

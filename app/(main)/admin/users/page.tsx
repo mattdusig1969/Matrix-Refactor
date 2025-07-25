@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import UserAdminClient from './user-admin-client';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminUsersPage() {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,17 +1,16 @@
 // app/test-supabase/route.ts
 import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
-export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  const { data, error } = await supabase.from('Surveys').select('*').limit(1);
-
-  return Response.json({
-    status: error ? 'error' : 'success',
-    message: error ? error.message : 'Connection successful!',
-    data: data || [],
-  });
+export async function GET(req: Request) {
+  // Defer initialization to runtime
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  
+  try {
+    const { data, error } = await supabase.from('users').select('id').limit(1);
+    if (error) throw error;
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
+  }
 }
