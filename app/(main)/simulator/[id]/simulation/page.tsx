@@ -261,7 +261,7 @@ const RawDataDisplay = ({ results, questions, onDownloadCSV, isSimulating, simul
 
 
 export default function SimulationPage() {
-  const { id: surveyId } = useParams(); // <-- ADD THIS LINE
+  const { id: surveyId } = useParams(); // <-- ADD THE () PARENTHESES HERE
 
   const pathname = usePathname();
 
