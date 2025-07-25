@@ -92,7 +92,7 @@ export default function TargetingPage({ params }) {
         return;
       }
       
-      const uniqueFields = [...new Set(data.map(d => d.field_name))];
+      const uniqueFields = Array.from(new Set(data.map(d => d.field_name)));
       setSubcategories(uniqueFields);
       
       const firstSubcategory = uniqueFields[0] || '';
