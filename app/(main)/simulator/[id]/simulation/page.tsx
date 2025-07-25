@@ -384,7 +384,6 @@ const refreshSimulationResults = async () => {
         acc[item.field_name].add(item.value);
         return acc;
       }, {})).reduce((acc, [name, values]) => ({ ...acc, [name]: Array.from(values || []).sort() }), {});
-
       setFieldsByCategory({ Demographics: groupFields(demoRaw), Geographics: groupFields(geoRaw), Psychographics: groupFields(psychoRaw) });
       setSelectedCategory('Demographics');
       setSelectedField('');
