@@ -1,29 +1,29 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast, Toaster } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import Link from 'next/link';
 
 const tabs = [
-  { name: 'Clients', path: 'clients' }
+  { name: 'Clients', path: '/simulator/clients' },
+  { name: 'Surveys', path: '/simulator/surveys' },
+  { name: 'Results', path: '/simulator/results' },
+  { name: 'Settings', path: '/simulator/settings' }
 ];
 
 export const dynamic = 'force-dynamic';
 
-export default function ClientsPage() {
+export default function AddClientPage() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
