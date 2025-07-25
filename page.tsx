@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import { Download, Save, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import SimulatorTabs from '../../SimulatorTabs';
+import SimulatorTabs from '@/components/SimulatorTabs';
 import {
   Select,
   SelectTrigger,
