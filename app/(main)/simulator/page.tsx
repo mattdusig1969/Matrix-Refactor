@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { toast, Toaster } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import DashboardChart from '@/components/DashboardChart';
 
 const tabs = [
   { name: 'Clients', path: 'clients' },
@@ -77,6 +78,7 @@ export default function ClientsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<string | null>(null);
+  const [chartData, setChartData] = useState([]); // Initialize with an empty array
 
   const fetchInitialData = async () => {
     try {
@@ -92,9 +94,25 @@ export default function ClientsPage() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       
       console.log('🔍 Auth response:', { userData, userError });
-      
+
+      // Fetch chart data
+      try {
+        const response = await fetch('/api/dashboard/completions');
+        const data = await response.json();
+        // Ensure data is an array before setting state
+        if (response.ok && Array.isArray(data)) {
+          setChartData(data);
+        } else {
+          console.error("Failed to fetch chart data or data is not an array:", data);
+          setChartData([]); // Reset to empty array on failure
+        }
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+        setChartData([]); // Reset to empty array on error
+      }
+
       if (userError) {
-        console.error('❌ Error fetching user:', userError);
+        console.error('Authentication error:', userError.message);
         setCurrentUser(null);
         return;
       }
@@ -532,6 +550,12 @@ export default function ClientsPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Chart section */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold mb-4">Survey Completions Overview</h2>
+        <DashboardChart chartData={chartData} />
       </div>
         </div>
       )}
