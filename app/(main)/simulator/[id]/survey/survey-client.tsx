@@ -196,7 +196,7 @@ export default function SurveyClient({ initialSurvey, initialQuestions, params }
               value={answer || ''}
               onChange={(e) => handleAnswerChange(currentQuestionIndex, e.target.value)}
               className="w-full border rounded p-2"
-              rows="4"
+              rows={4}
             />
           );
         default:
