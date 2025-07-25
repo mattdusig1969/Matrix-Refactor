@@ -36,7 +36,13 @@ export default function ClientsPage() {
       if (error) {
         toast.error('Failed to fetch clients: ' + error.message);
       } else if (data) {
-        setClients(data);
+        const processedData = data.map(client => ({
+          ...client,
+          company: Array.isArray(client.company) && client.company.length > 0 
+            ? client.company[0] 
+            : null
+        }));
+        setClients(processedData);
       }
       setLoading(false);
     };
