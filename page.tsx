@@ -284,7 +284,7 @@ export default function SimulationPage({ params }) {
   useEffect(() => {
     if (!selectedCountryId) return;
     async function fetchAttributesForCountry() {
-      const buildQuery = (tableName) => supabase.from(tableName).select('field_name, value').eq('country_id', selectedCountryId);
+      const buildQuery = (tableName: string) => supabase.from(tableName).select('field_name, value').eq('country_id', selectedCountryId);
       
       const [demoRaw, geoRaw, psychoRaw] = await Promise.all([
         buildQuery('demoattributes'),
@@ -292,11 +292,25 @@ export default function SimulationPage({ params }) {
         buildQuery('psychoattributes'),
       ]);
 
-      const groupFields = (raw) => Object.entries((raw?.data || []).reduce((acc, item) => {
-        if (!acc[item.field_name]) acc[item.field_name] = new Set();
-        acc[item.field_name].add(item.value);
-        return acc;
-      }, {})).reduce((acc, [name, values]) => ({ ...acc, [name]: Array.from(values).sort() }), {});
+      const groupFields = (raw: { data: { field_name: string; value: any }[] | null }) => {
+        if (!raw?.data) return {};
+        
+        // Group by field_name into Sets to handle duplicates
+        const groupedByField = raw.data.reduce((acc, item) => {
+          if (!acc[item.field_name]) {
+            acc[item.field_name] = new Set();
+          }
+          acc[item.field_name].add(item.value);
+          return acc;
+        }, {} as Record<string, Set<any>>);
+
+        // Convert Sets to sorted arrays
+        const result: Record<string, any[]> = {};
+        for (const field in groupedByField) {
+          result[field] = Array.from(groupedByField[field]).sort();
+        }
+        return result;
+      };
 
       setFieldsByCategory({ Demographics: groupFields(demoRaw), Geographics: groupFields(geoRaw), Psychographics: groupFields(psychoRaw) });
       setSelectedCategory('Demographics');
