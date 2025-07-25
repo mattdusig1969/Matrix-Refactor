@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
@@ -260,9 +260,10 @@ const RawDataDisplay = ({ results, questions, onDownloadCSV, isSimulating, simul
 );
 
 
-export default function SimulationPage({ params }) {
+export default function SimulationPage() {
+  const { id: surveyId } = useParams(); // <-- ADD THIS LINE
+
   const pathname = usePathname();
-  const { id: surveyId } = params;
 
   const isActiveTab = (path) => pathname.includes(path);
 
