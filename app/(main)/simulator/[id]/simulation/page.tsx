@@ -394,7 +394,7 @@ const refreshSimulationResults = async () => {
   const handleCountryChange = (countryId) => { 
     setSelectedCountryId(countryId); 
     setSelectedOptions({}); 
-    toast.info("Targeting options cleared for new country.");
+    toast("Targeting options cleared for new country."); // <-- CHANGE FROM toast.info TO toast
   };
 
   const toggleOption = useCallback((field, option) => { 
