@@ -1,53 +1,62 @@
 // app/page.tsx
 
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import Chart from '../components/dashboard/chart';
+'use client';
 
-export default function HomePage() {
+import { useEffect, useState } from 'react';
+import { Poppins } from 'next/font/google';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { LoginButton } from '@/components/auth/login-button';
+import Chart from '@/components/dashboard/chart';
+
+const font = Poppins({
+  subsets: ['latin'],
+  weight: ['600']
+});
+
+export default function Home() {
+  const [chartData, setChartData] = useState<{ created_at: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/dashboard/completions');
+        if (!response.ok) {
+          throw new Error('Failed to fetch chart data');
+        }
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setChartData(data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Welcome to Matrix</h1>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Simulator</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Run simulations of survey modules in real time.
-            </p>
-            <Link
-              href="/simulator"
-              className="inline-block text-blue-600 hover:underline font-medium"
-            >
-              → Go to Simulator Dashboard
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Matrix Sampling</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Split surveys into modules, distribute and track progress.
-            </p>
-            <Link
-              href="/matrix"
-              className="inline-block text-blue-600 hover:underline font-medium"
-            >
-              → Go to Matrix Sampling
-            </Link>
-          </CardContent>
-        </Card>
+    <main className="flex h-full flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-400 to-blue-800">
+      <div className="space-y-6 text-center">
+        <h1 className={cn('text-6xl font-semibold text-white drop-shadow-md', font.className)}>
+          Matrix
+        </h1>
+        <p className="text-white text-lg">A simple survey platform</p>
+        <div>
+          <LoginButton>
+            <Button variant="secondary" size="lg">
+              Sign in
+            </Button>
+          </LoginButton>
+        </div>
+        <div className="mt-10 w-full max-w-4xl p-4">
+          {isLoading ? <p className="text-white">Loading chart...</p> : <Chart chartData={chartData} />}
+        </div>
       </div>
-
-      <div className="mt-10">
-        <Chart />
-      </div>
-    </div>
+    </main>
   );
 }
