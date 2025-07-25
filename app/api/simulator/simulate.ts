@@ -38,4 +38,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { role: 'user', content: q.question_text },
           ],
         });
-        retur
+        return completion.choices[0]?.message?.content?.trim() || '';
+      })
+    );
+
+    // Save the simulated survey response to the database
+    const { error } = await supabase
+      .from('responses')
+      .insert([
+        {
+          survey_id,
+          session_id,
+          demographic_profile: demographicProfile,
+          answers,
+        },
+      ]);
+
+    if (error) {
+      console.error('Error saving response:', error);
+      return res.status(500).json({ error: 'Error saving response' });
+    }
+  }
+
+  return res.status(200).json({ message: 'Simulation completed' });
+}
+
+// Add this function definition
+function getProfileFromArchetype(archetype: any) {
+  // Return a basic demographic profile - customize as needed
+  return {
+    age: Math.floor(Math.random() * 50) + 20,
+    gender: Math.random() > 0.5 ? 'Male' : 'Female',
+    location: 'Default Location',
+    // Add other demographic fields as needed
+  };
+}
