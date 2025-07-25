@@ -71,7 +71,7 @@ const AudienceStep = ({
   countries, fieldsByCategory, selectedCategory, setSelectedCategory,
   selectedField, setSelectedField, selectedOptions, toggleOption,
   audienceName, setAudienceName, handleSaveAudience, disabled,
-  personaTemplates // <-- ADD THIS
+  personaTemplates, surveyId // <-- ADD THIS PARAMETER
 }) => (
   <fieldset disabled={disabled} className="bg-white shadow-lg rounded-lg p-6 border disabled:opacity-60">
     <div className="flex items-center mb-4 pb-2 border-b">
@@ -745,7 +745,8 @@ const refreshSimulationResults = async () => {
                   setAudienceName={setAudienceName}
                   handleSaveAudience={handleSaveAudience}
                   disabled={!surveyId}
-                  personaTemplates={personaTemplates} // <-- ADD THIS LINE
+                  personaTemplates={personaTemplates}
+                  surveyId={surveyId} // <-- ADD THIS LINE
               />
               <SimulationControls 
                   simulationCount={simulationCount}
