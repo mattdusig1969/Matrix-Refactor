@@ -30,7 +30,7 @@ export default function NewSurveyPage() {
     const { data, error } = await supabase
       .from('surveys')
       .insert(payload);
-    // handle result
+    // handle result (show toast, redirect, etc.)
   };
 
   return (
