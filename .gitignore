@@ -51,3 +51,4 @@ Thumbs.db
 # Supabase config (optional)
 .supabase/migrations/
 supabase/.temp/
+.vercel

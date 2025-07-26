@@ -7,7 +7,11 @@ import Link from 'next/link';
 import { Toaster, toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 
-// DO NOT INITIALIZE CLIENT HERE
+// ✅ Initialize Supabase client ONCE, outside the component
+const supabase = createClient(
+	process.env.NEXT_PUBLIC_SUPABASE_URL!,
+	process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const tabs = [
 	{ name: 'Clients', path: 'clients' },
@@ -19,11 +23,6 @@ const tabs = [
 export const dynamic = 'force-dynamic';
 
 export default function ClientsPage() {
-	// INITIALIZE CLIENT HERE
-	const supabase = createClient(
-		process.env.NEXT_PUBLIC_SUPABASE_URL!,
-		process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-	);
 	const [clients, setClients] = useState<
 		| {
 				id: string;
