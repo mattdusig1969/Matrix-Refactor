@@ -1,4 +1,4 @@
-// ✅ REWRITTEN: GeneralTab Component
+// ✅ MATRIX: GeneralTab Component
 
 'use client';
 
@@ -18,23 +18,13 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { simulatorTabs } from './tabs';
-import SimulatorTabs from '../../SimulatorTabs';
+import MatrixTabs from '../../MatrixTabs';
 
 // This client uses the public ANON key and is subject to RLS policies.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const tabs = [
-  { name: 'General', path: 'general' },
-  { name: 'Targeting', path: 'targeting' },
-  { name: 'Questions', path: 'questions' },
-  { name: 'Preview', path: 'preview' },
-  { name: 'Quotas', path: 'quotas' },
-  { name: 'Reporting', path: 'reporting' }
-];
 
 // Define a type for our form data for better type safety
 type SurveyFormData = {
@@ -46,7 +36,7 @@ type SurveyFormData = {
   survey_mode: string;
 };
 
-export default function GeneralTab({ params }) {
+export default function MatrixGeneralTab({ params }) {
   const { id } = useParams();
   const pathname = usePathname();
   const active = pathname.split('/')[3];
@@ -57,7 +47,7 @@ export default function GeneralTab({ params }) {
     title: '',
     description: '',
     target_n: '',
-    status: 'live', // Changed from 'draft' to 'live'
+    status: 'live',
     notes: '',
     survey_mode: ''
   });
@@ -67,25 +57,6 @@ export default function GeneralTab({ params }) {
   const [clientLastName, setClientLastName] = useState('');
 
   useEffect(() => {
-    const fetchSurveyData = async () => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/simulator/${id}`);
-        const result = await response.json();
-        if (response.ok && result.data) {
-          setFormData(prev => ({ ...prev, ...result.data }));
-        } else {
-          throw new Error(result.message || 'Failed to fetch survey data');
-        }
-      } catch (error) {
-        setError(error.message);
-        toast.error(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     const fetchSurvey = async () => {
       setLoading(true);
       const { data, error } = await supabase
@@ -106,37 +77,33 @@ export default function GeneralTab({ params }) {
           title: data.title || '',
           description: data.description || '',
           target_n: data.target_n?.toString() || '',
-          status: data.status || 'live', // Changed fallback from 'draft' to 'live'
+          status: data.status || 'live',
           notes: data.notes || '',
           survey_mode: data.survey_mode || ''
         });
 
+        // Fetch client data if client_id exists
         if (data.client_id) {
-          const { data: client, error: clientError } = await supabase
+          const { data: client } = await supabase
             .from('clients')
             .select('first_name, last_name, company_id')
             .eq('id', data.client_id)
             .single();
 
-          if (clientError) {
-            setError('Failed to load client data. ' + clientError.message);
-            toast.error('Failed to load client data.');
-          } else if (client) {
-            setClientFirstName(client.first_name);
-            setClientLastName(client.last_name);
+          if (client) {
+            setClientFirstName(client.first_name || '');
+            setClientLastName(client.last_name || '');
 
+            // Fetch company data if company_id exists
             if (client.company_id) {
-              const { data: company, error: companyError } = await supabase
+              const { data: company } = await supabase
                 .from('company')
                 .select('company_name')
                 .eq('id', client.company_id)
                 .single();
-
-              if (companyError) {
-                setError('Failed to load company data. ' + companyError.message);
-                toast.error('Failed to load company data.');
-              } else if (company) {
-                setCompanyName(company.company_name);
+              
+              if (company) {
+                setCompanyName(company.company_name || '');
               }
             }
           }
@@ -183,7 +150,7 @@ export default function GeneralTab({ params }) {
     if (error) {
       toast.error('Failed to save survey: ' + error.message);
     } else {
-      toast.success('Survey updated successfully!');
+      toast.success('Matrix survey updated successfully!');
     }
   };
 
@@ -192,17 +159,13 @@ export default function GeneralTab({ params }) {
 
   return (
     <div className="p-8">
-      <SimulatorTabs id={params.id} surveyType={formData.survey_mode} />
+      <MatrixTabs id={params.id} />
 
       {/* Mode row */}
       <div className="mb-4">
         <label className="form-label">Mode:</label>
         <div className="text-base text-gray-700">
-          {formData.survey_mode === 'synthetic'
-            ? 'Simulator'
-            : formData.survey_mode === 'matrix'
-            ? 'Matrix'
-            : ''}
+          {formData.survey_mode === 'matrix' ? 'Matrix Sampling' : 'Matrix'}
         </div>
       </div>
 

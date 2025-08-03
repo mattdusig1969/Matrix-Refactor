@@ -1,6 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+
+// Helper: Generate options from question text for rating_scale (e.g., "1-5")
+function generateOptionsFromText(question) {
+  if (question.question_type === 'rating_scale') {
+    // Try to extract a range like "1-5" or "1 to 8" from the question text
+    const match = question.question_text.match(/([0-9]+)\s*[-to]+\s*([0-9]+)/i);
+    if (match) {
+      const start = parseInt(match[1], 10);
+      const end = parseInt(match[2], 10);
+      if (!isNaN(start) && !isNaN(end) && end > start) {
+        return Array.from({ length: end - start + 1 }, (_, i) => String(start + i));
+      }
+    }
+    // Fallback: 1-5
+    return ['1','2','3','4','5'];
+  }
+  return [];
+}
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
@@ -21,18 +39,41 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// --- Helper Functions for Prompt Generation ---
-const createQuestionList = (questions) => {
-  return questions.map(q => {
-    let base = `Question ${q.question_number}: "${q.question_text}" (Type: ${q.type})`;
-    if (q.type !== "input" && Array.isArray(q.options)) {
-      base += `\nAllowed options:\n${q.options.map(opt => `- ${opt}`).join('\n')}`;
-      base += `\nIMPORTANT: For this question, you MUST select from the provided options and use the option text exactly as shown. Do NOT invent, rephrase, or abbreviate options.`;
-    }
-    return base;
-  }).join('\n');
-};
 
+
+// Function to create the question list for the prompt, with debug logging
+export function createQuestionList(questions: any[]): string {
+  const questionList = questions
+    .map((question, idx) => {
+      let qText = `${idx + 1}. ${question.question_text}`;
+      // Only require options for multiple-choice/rating questions
+      const needsOptions = [
+        'single_select_radio',
+        'single_select_dropdown',
+        'multi_select_checkbox',
+        'multiple_select',
+        'rating_scale'
+      ].includes(question.question_type);
+      if (needsOptions) {
+        if (!('options' in question)) {
+          console.error(`Question object is missing 'options' property:`, question);
+          throw new Error(`Question '${question.question_text}' is missing 'options' property!`);
+        }
+        if (!Array.isArray(question.options) || question.options.length === 0) {
+          console.error(`Question '${question.question_text}' has no options or options is not an array:`, question.options);
+          throw new Error(`Question '${question.question_text}' is missing options!`);
+        }
+        // Debug: log options for each question
+        console.log(`Options for question '${question.question_text}':`, question.options);
+        qText += `\nOptions: ${question.options.join(', ')}`;
+      }
+      return qText;
+    })
+    .join('\n\n');
+  // Debug: log the full prompt
+  console.log('Full OpenAI prompt being sent:', questionList);
+  return questionList;
+}
 const generatePersonas = (options) => {
   return Object.entries(options)
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
@@ -71,7 +112,7 @@ const AudienceStep = ({
   countries, fieldsByCategory, selectedCategory, setSelectedCategory,
   selectedField, setSelectedField, selectedOptions, toggleOption,
   audienceName, setAudienceName, handleSaveAudience, disabled,
-  personaTemplates // <-- ADD THIS
+  personaTemplates, surveyId
 }) => (
   <fieldset disabled={disabled} className="bg-white shadow-lg rounded-lg p-6 border disabled:opacity-60">
     <div className="flex items-center mb-4 pb-2 border-b">
@@ -184,7 +225,7 @@ const SimulationControls = ({ simulationCount, setSimulationCount, handleGenerat
   <fieldset disabled={disabled} className="bg-white shadow-lg rounded-lg p-6 border disabled:opacity-60">
     <h2 className="text-lg font-semibold mb-4 border-b pb-2">3. Configure & Run Simulation</h2>
     <div className="mb-4">
-      <label className="block font-medium mb-1 text-sm">Number of Responses</label>
+      <label className="block font-medium mb-1 text-sm">Number of Simulated Respondents</label>
       <input type="number" min="1" max="100" className="border px-3 py-2 rounded-md w-28 text-sm" value={simulationCount} onChange={(e) => setSimulationCount(Number(e.target.value))}/>
     </div>
     <button onClick={handleGenerateSimulation} disabled={isSimulating} className="w-full bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 font-bold disabled:bg-gray-400">{isSimulating ? 'Generating...' : 'Generate Simulated Responses'}</button>
@@ -199,18 +240,18 @@ const RawDataDisplay = ({ results, questions, onDownloadCSV, isSimulating, simul
                 <p className="text-lg font-semibold text-gray-700">Generating AI responses...</p>
                 <p className="text-sm text-gray-500">This may take a moment.</p>
                 {simulationCount > 0 && (
-                    <p className="text-sm font-bold text-blue-700 mt-2">{simulationProgress} of {simulationCount} responses complete</p>
+                    <p className="text-sm font-bold text-blue-700 mt-2">{simulationProgress} of {simulationCount} surveys complete</p>
                 )}
             </div>
         )}
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold text-lg">Raw Simulation Data</h2>
           <div className="flex gap-2">
-            <button className="bg-blue-50 text-blue-700 px-3 py-1 rounded font-semibold" onClick={onDownloadCSV}>
+            <button className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold text-xs" style={{fontSize:'0.85rem',padding:'0.25rem 0.5rem'}} onClick={onDownloadCSV}>
               Download CSV
             </button>
             <button
-              className="bg-red-600 text-white px-3 py-1 rounded font-semibold"
+              className="bg-red-600 text-white px-2 py-0.5 rounded font-semibold text-xs" style={{fontSize:'0.85rem',padding:'0.25rem 0.5rem'}}
               onClick={handleDeleteResults}
             >
               Clear Results
@@ -218,7 +259,7 @@ const RawDataDisplay = ({ results, questions, onDownloadCSV, isSimulating, simul
           </div>
         </div>
         <div className="mb-2 text-gray-600 text-sm">
-          Simulation completes: <span className="font-bold">{results.length}</span>
+          Simulation completes: <span className="font-bold">{results.filter(r => r.run_number === 1).length}</span>
         </div>
         <div className="space-y-6 mt-4 border rounded-lg p-4 h-[calc(100vh-15rem)] overflow-y-auto bg-slate-50">
             {results.length === 0 ? (
@@ -332,11 +373,45 @@ export default function SimulationPage({ params }) {
           .order('question_order');
 
         if (questionError) throw new Error(`Questions: ${questionError.message}`);
-        setQuestionsToAsk(questionData || []);
-        
+
+
+
+        const needsOptions = [
+          'single_select_radio',
+          'single_select_dropdown',
+          'multi_select_checkbox',
+          'multiple_select',
+          'rating_scale'
+        ];
+        const questionsWithOptions = (questionData || []).map(q => {
+          let options = [];
+          // Always try to parse answer_option if present
+          if (q.answer_option) {
+            try {
+              let optString = q.answer_option;
+              // Handle double-encoded (e.g., '"[\"A\",\"B\"]"')
+              if (typeof optString === 'string' && optString.startsWith('"[')) {
+                optString = optString.replace(/^"|"$/g, '');
+              }
+              options = JSON.parse(optString);
+            } catch (e) {
+              console.warn('Failed to parse answer_option for question', q.id, q.answer_option, e);
+              options = [];
+            }
+          }
+          // If still empty and needsOptions, try to generate from question text (for rating_scale)
+          if ((!Array.isArray(options) || options.length === 0) && q.question_type === 'rating_scale') {
+            options = generateOptionsFromText(q);
+          }
+          // Defensive: ensure options is always an array
+          if (!Array.isArray(options)) options = [];
+          return { ...q, options };
+        });
+        setQuestionsToAsk(questionsWithOptions);
+
         // Use the refresh function to load simulation results
         await refreshSimulationResults();
-        
+
         toast.success("Survey data loaded.", { id: loadingToast });
       } catch (error) {
         toast.error(`Failed to load page: ${error.message}`, { id: loadingToast });
@@ -382,7 +457,17 @@ const refreshSimulationResults = async () => {
         if (!acc[item.field_name]) acc[item.field_name] = new Set();
         acc[item.field_name].add(item.value);
         return acc;
-      }, {})).reduce((acc, [name, values]) => ({ ...acc, [name]: Array.from(values).sort() }), {});
+      }, {})).reduce((acc, [name, values]) => {
+        let arr;
+        if (values instanceof Set) {
+          arr = Array.from(values);
+        } else if (Array.isArray(values)) {
+          arr = values;
+        } else {
+          arr = Array.from(new Set());
+        }
+        return { ...acc, [name]: arr.sort() };
+      }, {});
 
       setFieldsByCategory({ Demographics: groupFields(demoRaw), Geographics: groupFields(geoRaw), Psychographics: groupFields(psychoRaw) });
       setSelectedCategory('Demographics');
@@ -394,7 +479,7 @@ const refreshSimulationResults = async () => {
   const handleCountryChange = (countryId) => { 
     setSelectedCountryId(countryId); 
     setSelectedOptions({}); 
-    toast.info("Targeting options cleared for new country.");
+    toast.success("Targeting options cleared for new country.");
   };
 
   const toggleOption = useCallback((field, option) => { 
@@ -447,150 +532,285 @@ const refreshSimulationResults = async () => {
       return toast.error("Survey has no questions to simulate.");
     }
 
-    audioRef.current = new Audio('/simulator/simulation/simulation-done.mp3');
+    audioRef.current = new Audio('/simulator/[id]/simulation/simulation-done.mp3');
+    
     audioRef.current.load();
 
     setIsSimulating(true);
     setSimulationProgress(0);
-    
+
     const lastRespondentNumber = simulationResults.length > 0
       ? Math.max(...simulationResults.map(r => r.respondent_number || 0))
       : 0;
 
     const audienceDescription = audienceMode === 'persona' ? personaText : generatePersonas(selectedOptions);
-    const questionList = createQuestionList(questionsToAsk);
+    const batchSize = 3; // Number of respondents per batch
+    const totalNeeded = simulationCount;
+    let generated = 0;
+    let attempts = 0;
+    const maxAttempts = simulationCount * 5;
     const newSimulations = [];
+    const usedArchetypes = new Set(simulationResults.map(r => r.archetype));
+    const usedProfiles = new Set(simulationResults.map(r => JSON.stringify(r.demographicprofile)));
 
-    for (let i = 1; i <= simulationCount; i++) {
-      const respondentNumber = lastRespondentNumber + i;
-      const allResultsSoFar = [...simulationResults, ...newSimulations];
-      const existingArchetypes = allResultsSoFar.map(r => r.archetype).filter(Boolean).join(', ');
-      
-      const prompt = `
-        Based on the following target audience:
-        ---
-        ${audienceDescription}
-        ---
-        Please generate a SINGLE, unique, and realistic simulated survey response for the survey titled "${survey.title}".
-        
-        For all questions except those of type "input", you MUST select from the provided answer options and use the option text exactly as shown in the answer option. Do NOT invent, rephrase, or abbreviate options.
+    const maxRetriesPerRespondent = 3;
+    while (generated < totalNeeded && attempts < maxAttempts) {
+      const batch = [];
+      const batchRespondentNumbers = [];
+      for (let i = 0; i < batchSize && generated + i < totalNeeded; i++) {
+        batch.push({ retryCount: 0 });
+        batchRespondentNumbers.push(lastRespondentNumber + generated + i + 1);
+      }
 
-        Here are the survey questions. You must provide an answer for EACH question using the exact question_number:
-        ---
-        ${questionList}
-        ---        ---
-                ${questionList}
-                ---
-
-        Your response MUST be a valid JSON object with this exact structure:
-        {
-          "simulated_responses": [{
-            "respondent_number": ${respondentNumber},
-            "archetype": "Brief persona description",
-            "demographicProfile": {
-              "key demographic attributes": "values"
-            },
-            "answers": [
-              {
-                "question_number": 1,
-                "answer": "your answer for question 1"
-              },
-              {
-                "question_number": 2,
-                "answer": "your answer for question 2"
+      for (let i = 0; i < batch.length; i++) {
+        let retryCount = 0;
+        let success = false;
+        let cleanedAnswers = null;
+        let newResult = null;
+        let personaData = null;
+        let respondentNumber = batchRespondentNumbers[i];
+        while (retryCount < maxRetriesPerRespondent && !success) {
+          attempts++;
+          // ...existing code to build prompt, send to OpenAI, and parse response...
+          // (Copy the prompt/questionList/sampleOutput logic from your current code here)
+          const allResultsSoFar = [...simulationResults, ...newSimulations];
+          const existingArchetypes = allResultsSoFar.map(r => r.archetype).filter(Boolean).join(', ');
+          const existingProfiles = allResultsSoFar.map(r => JSON.stringify(r.demographicprofile)).filter(Boolean).join('\n');
+          const detailedQuestionList = questionsToAsk.map((q, idx) => {
+            let line = `${idx + 1}. ${q.question_text}`;
+            if ([
+              'single_select_radio',
+              'single_select_dropdown',
+              'multi_select_checkbox',
+              'multiple_select',
+              'rating_scale'
+            ].includes(q.question_type)) {
+              if (q.question_type === 'multi_select_checkbox' || q.question_type === 'multiple_select') {
+                line += `\nType: Multiple Select. Options: ${q.options.join(', ')}`;
+                line += `\nAnswer format: Provide one or more options, separated by semicolons, using EXACTLY the provided option text.`;
+              } else if (q.question_type === 'rating_scale') {
+                line += `\nType: Rating Scale. Options: ${q.options.join(', ')}`;
+                line += `\nAnswer format: Use EXACTLY one of the provided numbers.`;
+              } else {
+                line += `\nType: Single Select. Options: ${q.options.join(', ')}`;
+                line += `\nAnswer format: Use EXACTLY one of the provided options.`;
               }
-              // etc. for each question
-            ]
-          }]
-        }
-
-        IMPORTANT:
-        - Each question_number must match exactly with the input questions
-        - Provide an answer for EVERY question
-        - Numbers must be integers, not strings
-        - Keep answers concise and realistic
-      `;
-
-      try {
-        const response = await fetch('/api/simulate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || `Request failed for respondent #${i}.`);
-        }
-
-        const data = await response.json();
-        const newResult = data.simulated_responses[0];
-        
-        if (!newResult) {
-            throw new Error(`AI returned an invalid response for respondent #${i}.`);
-        }
-
-        // FIX: Clean and validate the AI's response with strict integer comparison.
-        const cleanedAnswers = questionsToAsk.map((question) => {
-            // First try to match by question_number
-            const aiAnswerObject = Array.isArray(newResult.answers) 
-                ? newResult.answers.find(a => {
-                    // Convert both to numbers for consistent comparison
-                    const aiQuestionNum = parseInt(String(a.question_number), 10);
-                    const questionNum = parseInt(String(question.question_number), 10);
-                    return aiQuestionNum === questionNum;
-                }) 
-                : null;
-            
-            // Add debug logging
-            if (!aiAnswerObject) {
-                console.warn(`No answer found for question ${question.question_number}`, {
-                    question,
-                    available_answers: newResult.answers
-                });
+            } else {
+              line += `\nType: Open-ended. Answer format: Write a short, realistic response.`;
             }
-            
+            return line;
+          }).join('\n\n');
+          const sampleOutput = `Sample output:\n{\n  "simulated_responses": [{\n    "respondent_number": 1,\n    "archetype": "Young professional who loves adventure travel",\n    "demographicProfile": {\n      "age": "28",\n      "income": "$80,000",\n      "education": "Bachelor's"\n    },\n    "answers": [\n      { "question_number": 1, "answer": "Once a year" },\n      { "question_number": 2, "answer": "Relaxation" },\n      { "question_number": 3, "answer": "5" },\n      { "question_number": 4, "answer": "A trip to Japan with my family." }\n    ]\n  }]\n}`;
+          const prompt = `
+            Based on the following target audience:
+            ---
+            ${audienceDescription}
+            ---
+            Please generate a SINGLE, unique, and realistic simulated survey response for the survey titled "${survey.title}".
+
+            For each question:
+            - If it is multiple choice or rating scale, you MUST select from the provided options and use the option text or number exactly as shown. Do NOT invent, rephrase, or abbreviate options.
+            - If it is open-ended, you MUST provide a short, realistic answer. Do NOT leave any answer blank or empty.
+            - If you are unsure or do not know the answer for a multiple choice or rating scale, ALWAYS select the FIRST option from the provided list for that question. Never leave any answer blank.
+
+            Here are the survey questions. You must provide an answer for EVERY question using the exact question_number:
+            ---
+            ${detailedQuestionList}
+            ---
+
+            IMPORTANT: Each persona MUST have a unique archetype and a unique combination of demographic attributes (such as income, ethnicity, education, etc.). Do NOT repeat the same archetype or the same full set of demographic details as any previous respondent. Previously used archetypes: [${existingArchetypes}]. Previously used demographic profiles (JSON):\n${existingProfiles}
+
+            Your response MUST be a valid JSON object with this exact structure. ${sampleOutput}
+
+            IMPORTANT:
+            - Each question_number must match exactly with the input questions
+            - Provide a NON-EMPTY answer for EVERY question (no blanks allowed)
+            - If unsure, ALWAYS use the FIRST option from the provided list for multiple choice or rating scale
+            - Numbers must be integers, not strings
+            - Keep answers concise and realistic
+          `;
+          let response;
+          let is429 = false;
+          let waitMs = 10000 * (retryCount + 1); // Exponential backoff: 10s, 20s, 30s
+          try {
+            response = await fetch('/api/simulate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt }),
+            });
+            if (response.status === 429) {
+              is429 = true;
+              toast.error('OpenAI rate limit hit. Waiting before retrying...');
+              await new Promise(res => setTimeout(res, waitMs));
+              retryCount++;
+              continue;
+            }
+          } catch (err) {
+            retryCount++;
+            continue;
+          }
+          if (!response.ok) {
+            retryCount++;
+            continue;
+          }
+          const data = await response.json();
+          newResult = data.simulated_responses[0];
+          if (!newResult) {
+            retryCount++;
+            continue;
+          }
+          // Check for duplicate archetype or demographic profile
+          const profileString = JSON.stringify(newResult.demographicProfile);
+          if (usedArchetypes.has(newResult.archetype) || usedProfiles.has(profileString)) {
+            retryCount++;
+            continue;
+          }
+          // Clean and validate the AI's response with strict integer comparison.
+          let hasEmptyAnswer = false;
+          cleanedAnswers = questionsToAsk.map((question) => {
+            const aiAnswerObject = Array.isArray(newResult.answers)
+              ? newResult.answers.find(a => {
+                  const aiQuestionNum = parseInt(String(a.question_number), 10);
+                  const questionNum = parseInt(String(question.question_number), 10);
+                  return aiQuestionNum === questionNum;
+                })
+              : null;
+            let answer = aiAnswerObject?.answer || '';
+            const needsOptions = [
+              'single_select_radio',
+              'single_select_dropdown',
+              'multi_select_checkbox',
+              'multiple_select',
+              'rating_scale'
+            ];
+            if (needsOptions.includes(question.question_type)) {
+              if (!Array.isArray(question.options) || question.options.length === 0) {
+                hasEmptyAnswer = true;
+              }
+              const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+              const allowedOptions = question.options.map(opt => String(opt).trim());
+              const normalizedAllowed = allowedOptions.map(opt => normalize(opt));
+              if (question.question_type === 'multi_select_checkbox' || question.question_type === 'multiple_select') {
+                const aiAnswers = String(answer).split(';').map(a => a.trim()).filter(Boolean);
+                if (aiAnswers.length === 0) {
+                  hasEmptyAnswer = true;
+                }
+                const validAnswers = aiAnswers.map(ans => {
+                  const normAns = normalize(ans);
+                  const idx = normalizedAllowed.findIndex(opt => opt === normAns);
+                  if (idx !== -1) {
+                    return allowedOptions[idx];
+                  } else {
+                    return null;
+                  }
+                }).filter(Boolean);
+                if (validAnswers.length !== aiAnswers.length) {
+                  hasEmptyAnswer = true;
+                }
+                answer = validAnswers.join('; ');
+              } else {
+                const normalizedAnswer = normalize(answer);
+                if (!answer || normalizedAnswer === '') {
+                  hasEmptyAnswer = true;
+                }
+                const matchedIdx = normalizedAllowed.findIndex(opt => opt === normalizedAnswer);
+                if (matchedIdx !== -1) {
+                  answer = allowedOptions[matchedIdx];
+                } else if (!hasEmptyAnswer) {
+                  hasEmptyAnswer = true;
+                }
+              }
+            } else {
+              if (!answer || String(answer).trim() === '') {
+                hasEmptyAnswer = true;
+              }
+            }
             return {
-                question_number: question.question_number,
-                answer: aiAnswerObject?.answer || ''
+              question_number: question.question_number,
+              answer
             };
-        });
-
-        const formattedResult = {
-          id: uuidv4(),
-          survey_id: surveyId,
-          respondent_number: respondentNumber,
-          archetype: newResult.archetype,
-          answers: cleanedAnswers,
-          demographicprofile: newResult.demographicProfile
+          });
+          if (!hasEmptyAnswer) {
+            success = true;
+            break;
+          }
+          retryCount++;
+        }
+        // If still not successful after retries, fallback: use first allowed option for any invalid answer
+        if (!success) {
+          cleanedAnswers = questionsToAsk.map((question) => {
+            const needsOptions = [
+              'single_select_radio',
+              'single_select_dropdown',
+              'multi_select_checkbox',
+              'multiple_select',
+              'rating_scale'
+            ];
+            if (needsOptions.includes(question.question_type)) {
+              if (Array.isArray(question.options) && question.options.length > 0) {
+                if (question.question_type === 'multi_select_checkbox' || question.question_type === 'multiple_select') {
+                  return {
+                    question_number: question.question_number,
+                    answer: question.options[0]
+                  };
+                } else {
+                  return {
+                    question_number: question.question_number,
+                    answer: question.options[0]
+                  };
+                }
+              } else {
+                return { question_number: question.question_number, answer: '' };
+              }
+            } else {
+              return { question_number: question.question_number, answer: 'N/A' };
+            }
+          });
+        }
+        personaData = {
+          archetype: newResult?.archetype || `Fallback Persona #${respondentNumber}`,
+          demographicprofile: newResult?.demographicProfile || {}
         };
-
-        newSimulations.push(formattedResult);
-        setSimulationResults(prevResults => [...prevResults, formattedResult]);
-        setSimulationProgress(i);
-
-      } catch (error) {
-        toast.error(`Simulation failed: ${error.message}`);
-        setIsSimulating(false);
-        return;
+        const { data: inserted, error: insertError } = await supabase
+          .from('simulation_results')
+          .insert({
+            survey_id: surveyId,
+            respondent_number: respondentNumber,
+            archetype: personaData.archetype,
+            answers: cleanedAnswers,
+            demographicprofile: personaData.demographicprofile,
+            run_number: 1,
+            persona_data: personaData
+          })
+          .select()
+          .single();
+        if (insertError) {
+          toast.error(`Failed to save simulation result: ${insertError.message}`);
+          setIsSimulating(false);
+          return;
+        }
+        if (!inserted.persona_id) {
+          await supabase
+            .from('simulation_results')
+            .update({ persona_id: inserted.id })
+            .eq('id', inserted.id);
+        }
+        newSimulations.push({ ...inserted, persona_id: inserted.id });
+        setSimulationResults(prevResults => [...prevResults, { ...inserted, persona_id: inserted.id }]);
+        setSimulationProgress(prev => prev + 1);
+        usedArchetypes.add(personaData.archetype);
+        usedProfiles.add(JSON.stringify(personaData.demographicprofile));
+        generated++;
       }
     }
-
-    try {
-      const { error: insertError } = await supabase.from('simulation_results').insert(newSimulations);
-      if (insertError) throw insertError;
-
-      toast.success("Simulation complete! All new results saved.");
-      
-      if (audioRef.current) {
-        audioRef.current.play().catch(err => console.error("Audio playback failed:", err));
-      }
-
-    } catch (error) {
-      toast.error(`Failed to save results to database: ${error.message}`);
-    } finally {
-      setIsSimulating(false);
+    if (generated < totalNeeded) {
+      toast.error(`Only ${generated} unique personas could be generated. Try reducing the number or broadening the target.`);
     }
+    toast.success("Simulation complete! All new results saved.");
+    if (audioRef.current) {
+      audioRef.current.play().catch(err => console.error("Audio playback failed:", err));
+    }
+    setIsSimulating(false);
   };
 
   const exportToCSV = () => {
@@ -662,61 +882,9 @@ const refreshSimulationResults = async () => {
 
   return (
     <div className="p-8 bg-slate-100 min-h-screen">
-      {/* Main Navigation Tabs */}
-      <nav className="flex space-x-8 border-b border-gray-200 mb-6">
-        <Link 
-          href={`/simulator/${surveyId}/general`}
-          className={`pb-4 px-1 ${isActiveTab('general') 
-            ? 'border-b-2 border-blue-500 text-blue-600' 
-            : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          General
-        </Link>
-        <Link 
-          href={`/simulator/${surveyId}/targeting`}
-          className={`pb-4 px-1 ${isActiveTab('targeting') 
-            ? 'border-b-2 border-blue-500 text-blue-600' 
-            : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Targeting
-        </Link>
-        <Link 
-          href={`/simulator/${surveyId}/survey`}
-          className={`pb-4 px-1 ${isActiveTab('survey') 
-            ? 'border-b-2 border-blue-500 text-blue-600' 
-            : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Survey
-        </Link>
-        <Link 
-          href={`/simulator/${surveyId}/quotas`}
-          className={`pb-4 px-1 ${isActiveTab('quotas') 
-            ? 'border-b-2 border-blue-500 text-blue-600' 
-            : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Quotas
-        </Link>
-        <Link 
-          href={`/simulator/${surveyId}/simulation`}
-          className={`pb-4 px-1 ${isActiveTab('simulation') 
-            ? 'border-b-2 border-blue-500 text-blue-600' 
-            : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Simulation
-        </Link>
-        <Link 
-          href={`/simulator/${surveyId}/reporting`}
-          className={`pb-4 px-1 ${isActiveTab('reporting') 
-            ? 'border-b-2 border-blue-500 text-blue-600' 
-            : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Reporting
-        </Link>
-      </nav>
+      {/* Shared SimulatorTabs navigation */}
+      <SimulatorTabs id={surveyId} surveyType={surveyMode} />
 
-      {/* Remove SimulatorTabs component since we're replacing it */}
-      {/* <SimulatorTabs id={params.id} /> */}
-      
       {/* Keep your existing content */}
       <div className="bg-white shadow-lg rounded-lg p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -744,7 +912,8 @@ const refreshSimulationResults = async () => {
                   setAudienceName={setAudienceName}
                   handleSaveAudience={handleSaveAudience}
                   disabled={!surveyId}
-                  personaTemplates={personaTemplates} // <-- ADD THIS LINE
+                  personaTemplates={personaTemplates}
+                  surveyId={surveyId}
               />
               <SimulationControls 
                   simulationCount={simulationCount}

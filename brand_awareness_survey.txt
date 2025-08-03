@@ -1,0 +1,186 @@
+BRAND AWARENESS SURVEY
+Target: Similar age groups, same gender for consistency testing
+
+Q: What is your current employment status?
+Type: single_select_radio
+A: Employed full-time
+A: Employed part-time
+A: Self-employed
+A: Unemployed
+A: Retired
+A: Student
+
+Q: Which of the following smartphone brands are you familiar with? (Select all that apply)
+Type: multi_select_checkbox
+A: Apple (iPhone)
+A: Samsung
+A: Google (Pixel)
+A: OnePlus
+A: Xiaomi
+A: Huawei
+A: Sony
+A: Motorola
+A: None of these
+
+Q: Which smartphone brand do you currently use?
+Type: single_select_radio
+A: Apple (iPhone)
+A: Samsung
+A: Google (Pixel)
+A: OnePlus
+A: Xiaomi
+A: Huawei
+A: Sony
+A: Motorola
+A: Other brand
+A: I don't have a smartphone
+
+Q: How likely are you to recommend your current smartphone brand to a friend?
+Type: single_select_radio
+A: Extremely likely
+A: Very likely
+A: Somewhat likely
+A: Not very likely
+A: Not at all likely
+
+Q: Which of the following streaming services are you aware of? (Select all that apply)
+Type: multi_select_checkbox
+A: Netflix
+A: Disney+
+A: Amazon Prime Video
+A: Apple TV+
+A: HBO Max
+A: Hulu
+A: Paramount+
+A: Peacock
+A: YouTube Premium
+A: None of these
+
+Q: Which streaming service do you use most frequently?
+Type: single_select_radio
+A: Netflix
+A: Disney+
+A: Amazon Prime Video
+A: Apple TV+
+A: HBO Max
+A: Hulu
+A: Paramount+
+A: Peacock
+A: YouTube Premium
+A: I don't use streaming services
+
+Q: How often do you see advertisements for fast food brands?
+Type: single_select_radio
+A: Multiple times per day
+A: Once per day
+A: A few times per week
+A: Once per week
+A: Rarely
+A: Never
+
+Q: Which fast food brands can you name without looking? (Select all that apply)
+Type: multi_select_checkbox
+A: McDonald's
+A: Burger King
+A: KFC
+A: Taco Bell
+A: Subway
+A: Pizza Hut
+A: Domino's
+A: Starbucks
+A: Chipotle
+A: Wendy's
+
+Q: When you think of electric vehicles, which brand comes to mind first?
+Type: single_select_radio
+A: Tesla
+A: BMW
+A: Mercedes-Benz
+A: Audi
+A: Nissan
+A: Chevrolet
+A: Ford
+A: Volkswagen
+A: Hyundai
+A: I don't think of any specific brand
+
+Q: How familiar are you with the brand "Tesla"?
+Type: single_select_radio
+A: Very familiar - I know a lot about the brand
+A: Somewhat familiar - I know some things about the brand
+A: Slightly familiar - I've heard of it but don't know much
+A: Not familiar - I've never heard of this brand
+
+Q: What do you primarily associate Tesla with? (Select all that apply)
+Type: multi_select_checkbox
+A: Electric vehicles
+A: Luxury cars
+A: Innovation/Technology
+A: Elon Musk
+A: Environmental friendliness
+A: High prices
+A: Autopilot/Self-driving
+A: Solar panels/energy
+A: Nothing specific
+
+Q: How likely would you be to consider purchasing a Tesla in the next 2 years?
+Type: single_select_radio
+A: Extremely likely
+A: Very likely
+A: Somewhat likely
+A: Not very likely
+A: Not at all likely
+A: I already own a Tesla
+
+Q: Which social media platforms do you use regularly? (Select all that apply)
+Type: multi_select_checkbox
+A: Facebook
+A: Instagram
+A: Twitter/X
+A: TikTok
+A: LinkedIn
+A: YouTube
+A: Snapchat
+A: Pinterest
+A: Reddit
+A: None of these
+
+Q: Where do you most often discover new brands or products?
+Type: single_select_radio
+A: Social media advertisements
+A: Word of mouth from friends/family
+A: TV commercials
+A: Online search results
+A: YouTube videos
+A: Influencer recommendations
+A: Email newsletters
+A: Physical stores
+A: Other
+
+Q: How important is brand reputation when making a purchase decision?
+Type: single_select_radio
+A: Extremely important
+A: Very important
+A: Somewhat important
+A: Not very important
+A: Not at all important
+
+TARGETING RECOMMENDATIONS:
+- Age: 25-34 OR 35-44 (pick one for consistency)
+- Gender: Male OR Female (pick one for consistency)
+- Income: $50,000-$100,000 (middle class for brand awareness)
+- Education: Bachelor's degree or higher
+- Location: Urban or Suburban
+- Employment: Employed full-time or part-time
+
+This survey tests:
+1. Employment context (demographic anchor)
+2. Tech brand awareness (smartphones)
+3. Entertainment brand usage (streaming)
+4. Traditional advertising exposure (fast food)
+5. Emerging brand recognition (Tesla/EVs)
+6. Brand associations and perceptions
+7. Purchase intent
+8. Media consumption habits
+9. Brand discovery channels
+10. Brand importance in decision making

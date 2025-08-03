@@ -177,7 +177,11 @@ export default function NewSimulatorSurveyPage() {
       }
 
       toast.success('Survey created successfully!');
-      await router.replace(`/simulator/${data.survey_id}/general`);
+      if (surveyMode === 'matrix') {
+        await router.replace(`/matrix/${data.survey_id}/general`);
+      } else {
+        await router.replace(`/simulator/${data.survey_id}/general`);
+      }
 
     } catch (error) {
       console.error('Error creating survey:', error);

@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { toast } from 'react-hot-toast';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import SimulatorTabs from '../../SimulatorTabs';
 import { saveAs } from 'file-saver';
 import WordCloud from '@/components/WordCloud';
 
@@ -22,22 +21,28 @@ const chartableTypes = [
 ];
 
 export default function ReportingPage({ params }) {
-  const pathname = usePathname();
   const { id: surveyId } = params;
   const [questions, setQuestions] = useState([]);
   const [results, setResults] = useState([]);
   const [charts, setCharts] = useState([]);
   const [wordCloudData, setWordCloudData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [surveyMode, setSurveyMode] = useState('synthetic');
 
-  // Fetch questions and results
+  // Fetch survey mode, questions, and results
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      
-      console.log('Starting data fetch for surveyId:', surveyId);
-      
-      // Fetch questions with correct column names
+
+      // Fetch survey mode for SimulatorTabs
+      const { data: surveyData, error: surveyError } = await supabase
+        .from('surveys')
+        .select('survey_mode')
+        .eq('id', surveyId)
+        .single();
+      if (surveyData?.survey_mode) setSurveyMode(surveyData.survey_mode);
+
+      // Fetch questions
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
         .select(`
@@ -49,17 +54,11 @@ export default function ReportingPage({ params }) {
         `)
         .eq('survey_id', surveyId)
         .order('question_number');
-      
-      console.log('Questions data:', {
-        count: questionsData?.length,
-        types: questionsData?.map(q => q.question_type),
-        chartableCount: questionsData?.filter(q => chartableTypes.includes(q.question_type)).length,
-        firstQuestion: questionsData?.[0]
-      });
-      
+
       if (questionsError) {
         console.error('Questions error:', questionsError);
         toast.error(questionsError.message);
+        setLoading(false);
         return;
       }
 
@@ -68,25 +67,16 @@ export default function ReportingPage({ params }) {
         .from('simulation_results')
         .select('*')
         .eq('survey_id', surveyId);
-      
-      console.log('Results data:', {
-        count: resultsData?.length,
-        firstResult: resultsData?.[0],
-        hasAnswers: resultsData?.every(r => r.answers && Array.isArray(r.answers))
-      });
-      
+
       if (resultsError) {
         console.error('Results error:', resultsError);
         toast.error(resultsError.message);
+        setLoading(false);
         return;
       }
 
       // Only proceed if we have both questions and results
       if (!questionsData?.length || !resultsData?.length) {
-        console.warn('Missing data:', { 
-          hasQuestions: Boolean(questionsData?.length), 
-          hasResults: Boolean(resultsData?.length) 
-        });
         setLoading(false);
         return;
       }
@@ -95,7 +85,6 @@ export default function ReportingPage({ params }) {
       setResults(resultsData);
       setLoading(false);
     }
-    
     fetchData();
   }, [surveyId]);
 
@@ -263,65 +252,12 @@ export default function ReportingPage({ params }) {
     }
   };
 
-  // Helper function to check if a tab is active
-  const isActiveTab = (path) => pathname.includes(path);
-
   if (loading) return <div className="p-8">Loading report...</div>;
 
   return (
     <div className="p-8 bg-white min-h-screen">
       <div className="mb-8">
-        {/* Main Navigation Tabs */}
-        <nav className="flex space-x-8 border-b border-gray-200 mb-6">
-          <Link 
-            href={`/simulator/${surveyId}/general`}
-            className={`pb-4 px-1 ${isActiveTab('general') 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            General
-          </Link>
-          <Link 
-            href={`/simulator/${surveyId}/targeting`}
-            className={`pb-4 px-1 ${isActiveTab('targeting') 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Targeting
-          </Link>
-          <Link 
-            href={`/simulator/${surveyId}/survey`}
-            className={`pb-4 px-1 ${isActiveTab('survey') 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Survey
-          </Link>
-          <Link 
-            href={`/simulator/${surveyId}/quotas`}
-            className={`pb-4 px-1 ${isActiveTab('quotas') 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Quotas
-          </Link>
-          <Link 
-            href={`/simulator/${surveyId}/simulation`}
-            className={`pb-4 px-1 ${isActiveTab('simulation') 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Simulation
-          </Link>
-          <Link 
-            href={`/simulator/${surveyId}/reporting`}
-            className={`pb-4 px-1 ${isActiveTab('reporting') 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Reporting
-          </Link>
-        </nav>
+        <SimulatorTabs id={surveyId} surveyType={surveyMode} />
 
         {/* Download Button */}
         <div className="flex justify-end mb-6">
@@ -339,9 +275,7 @@ export default function ReportingPage({ params }) {
         {/* Chart section */}
         <div className="space-y-8">
           <h2 className="text-2xl font-bold text-gray-800">📊 Response Distribution</h2>
-          {loading ? (
-            <div className="text-center py-8">Loading report...</div>
-          ) : charts.length > 0 ? (
+          {charts.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {charts.map(chart => (
                 <div key={chart.question} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">

@@ -1,7 +1,7 @@
-// app/simulator/page.tsx
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Card,
@@ -27,6 +27,65 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// StatusDropdown component for status dot and menu
+const StatusDropdown = ({ survey, fetchInitialData }) => {
+  const [open, setOpen] = useState(false);
+  const dotRef = useRef(null);
+  const statusOptions = [
+    { value: 'live', label: 'Live', color: 'bg-gradient-to-br from-green-400 to-blue-400' },
+    { value: 'paused', label: 'Paused', color: 'bg-yellow-400' },
+    { value: 'archived', label: 'Archived', color: 'bg-gray-400' }
+  ];
+  const currentStatus = statusOptions.find(opt => opt.value === survey.status) || statusOptions[0];
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === survey.status) return;
+    const { error } = await supabase
+      .from('surveys')
+      .update({ status: newStatus })
+      .eq('id', survey.id);
+    if (error) {
+      toast.error('Failed to update status');
+    } else {
+      toast.success(`Survey status changed to ${newStatus}`);
+      fetchInitialData();
+    }
+    setOpen(false);
+  };
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e) {
+      if (dotRef.current && !dotRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+  return (
+    <div className="relative inline-block" ref={dotRef}>
+      <button
+        className={`h-3 w-3 rounded-full inline-block border-2 border-white shadow cursor-pointer ${currentStatus.color}`}
+        title={currentStatus.label}
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+      />
+      {open && (
+        <div className="absolute z-20 mt-2 right-0 bg-white border rounded shadow-lg min-w-[120px]">
+          {statusOptions.map(opt => (
+            <button
+              key={opt.value}
+              className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 ${opt.value === survey.status ? 'font-bold text-blue-700' : ''}`}
+              onClick={() => handleStatusChange(opt.value)}
+            >
+              <span className={`h-3 w-3 rounded-full mr-2 inline-block ${opt.color}`}></span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
 const navItems = [
   { href: '/simulator', label: 'Dashboard' },
   { href: '/simulator/new', label: 'Create Survey' },
@@ -42,8 +101,10 @@ export default function SimulatorDashboard() {
       target_n: number;
       completed_n: number;
       actual_completed_n?: number;
+      rerun_n?: number;
       created_at: string;
       creator_id: string | null;
+      client_id?: string;
       creator: {
         id: string;
         first_name: string;
@@ -74,56 +135,56 @@ export default function SimulatorDashboard() {
   const fetchInitialData = async () => {
     try {
       setIsLoading(true);
-      
       // First check if there's an active session
       console.log('🔍 Checking existing session...');
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       console.log('📱 Session data:', { sessionData, sessionError });
-      
       // Fetch current user and set as default filter
       console.log('🔍 Fetching user authentication...');
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      
       console.log('🔍 Auth response:', { userData, userError });
-      
       if (userError) {
         console.error('❌ Error fetching user:', userError);
         setCurrentUser(null);
         return;
       }
-
       console.log('👤 User data:', userData.user);
       setCurrentUser(userData.user);
       // Set default user filter to logged-in user
       if (userData.user) {
         setAdminFilter(userData.user.id);
       }
-
       // Only proceed with data fetching if user is authenticated
       if (!userData.user) {
         console.log('❌ No authenticated user found');
         console.log('💡 Please log in at: http://localhost:3003/login');
         return;
       }
-
       console.log('✅ User authenticated, fetching surveys...');
-
-      // Fetch surveys - remove the problematic creator join
+      // Fetch surveys
       const { data: surveysData, error: surveysError } = await supabase
         .from('surveys')
-        .select(`
-          *,
-          client:client_id (id, first_name, last_name, company_id)
-        `)
+        .select(`*, client_id, client:client_id (id, first_name, last_name, company_id)`)
         .order('created_at', { ascending: false });
-
       console.log('📊 Surveys fetch result:', { surveysData, surveysError });
-
       if (surveysError) {
         console.error('❌ Error fetching surveys:', surveysError);
       } else {
         console.log(`📊 Found ${(surveysData || []).length} surveys`);
-        
+        // Fetch all simulation_results for these surveys in one query
+        const surveyIds = (surveysData || []).map(s => s.id);
+        let allResults = [];
+        if (surveyIds.length > 0) {
+          const { data: simResults, error: simError } = await supabase
+            .from('simulation_results')
+            .select('survey_id, run_number')
+            .in('survey_id', surveyIds);
+          if (simError) {
+            console.error('Error fetching simulation_results:', simError);
+          } else {
+            allResults = simResults || [];
+          }
+        }
         // First fetch users to match with survey creators
         let usersForMatching = [];
         try {
@@ -135,39 +196,22 @@ export default function SimulatorDashboard() {
         } catch (error) {
           console.log('Could not fetch users for creator matching:', error);
         }
-        
-        // Fetch simulation result counts for each survey and add creator info
-        const surveysWithCounts = await Promise.all(
-          (surveysData || []).map(async (survey) => {
-            try {
-              const { count } = await supabase
-                .from('simulation_results')
-                .select('*', { count: 'exact', head: true })
-                .eq('survey_id', survey.id);
-              
-              // Find creator info from users list
-              const creator = usersForMatching.find(user => user.id === survey.creator_id);
-              
-              return {
-                ...survey,
-                actual_completed_n: count || 0,
-                creator: creator ? {
-                  id: creator.id,
-                  first_name: creator.first_name,
-                  last_name: creator.last_name
-                } : null
-              };
-            } catch (error) {
-              console.error(`Error fetching count for survey ${survey.id}:`, error);
-              return {
-                ...survey,
-                actual_completed_n: 0,
-                creator: null
-              };
-            }
-          })
-        );
-
+        // Aggregate counts in-memory
+        const surveysWithCounts = (surveysData || []).map(survey => {
+          const completedCount = allResults.filter(r => r.survey_id === survey.id && r.run_number === 1).length;
+          const rerunCount = allResults.filter(r => r.survey_id === survey.id && r.run_number > 1).length;
+          const creator = usersForMatching.find(user => user.id === survey.creator_id);
+          return {
+            ...survey,
+            actual_completed_n: completedCount || 0,
+            rerun_n: rerunCount || 0,
+            creator: creator ? {
+              id: creator.id,
+              first_name: creator.first_name,
+              last_name: creator.last_name
+            } : null
+          };
+        });
         console.log('📊 Surveys with counts and creators:', surveysWithCounts);
         setSurveys(surveysWithCounts);
       }
@@ -177,25 +221,21 @@ export default function SimulatorDashboard() {
         .from('company') // <-- singular!
         .select('*')
         .order('company_name');
-
       if (companiesError) {
         console.error('Error fetching companies:', companiesError);
       } else {
         setCompanies(companiesData || []);
       }
-
       // Fetch clients
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
         .order('first_name');
-
       if (clientsError) {
         console.error('Error fetching clients:', clientsError);
       } else {
         setClients(clientsData || []);
       }
-
       // Fetch users from our API route (which uses service role key server-side)
       console.log('👥 Fetching users from API...');
       try {
@@ -224,9 +264,9 @@ export default function SimulatorDashboard() {
           email: userData.user.email
         }]);
       }
-
     } catch (error) {
       console.error('Error in fetchInitialData:', error);
+      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }
@@ -294,7 +334,7 @@ export default function SimulatorDashboard() {
           survey_mode: originalSurvey.survey_mode,
           country_id: originalSurvey.country_id, // ensure country_id is copied
           targeting: originalSurvey.targeting, // ensure targeting field is copied
-          status: 'draft', // New copies start as draft
+          status: 'live', // New copies start as live
           creator_id: currentUser.id,
           created_at: new Date().toISOString()
         }])
@@ -467,6 +507,8 @@ export default function SimulatorDashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex-1">{survey.title}</CardTitle>
+                {/* Survey Mode Label */}
+                <span className={`ml-2 px-2 py-1 text-xs rounded font-bold ${survey.survey_mode === 'matrix' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{survey.survey_mode === 'matrix' ? 'Matrix' : 'Simulator'}</span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={(e) => {
@@ -485,12 +527,8 @@ export default function SimulatorDashboard() {
                       </svg>
                     )}
                   </button>
-                  {survey.status === 'live' && (
-                    <span className="h-3 w-3 rounded-full bg-gradient-to-br from-green-400 to-blue-400 inline-block" title="Live"></span>
-                  )}
-                  {survey.status === 'paused' && (
-                    <span className="h-3 w-3 rounded-full bg-yellow-400 inline-block" title="Paused"></span>
-                  )}
+                  {/* Status dot with dropdown */}
+                  <StatusDropdown survey={survey} fetchInitialData={fetchInitialData} />
                 </div>
               </div>
             </CardHeader>
@@ -498,23 +536,17 @@ export default function SimulatorDashboard() {
               <p className="text-sm font-semibold">
                 {(() => {
                   let companyId = survey.client?.company_id;
-
-                  // Fallback: if survey.client is missing, try to get client from clients array
                   if (!companyId && survey.client_id && clients.length > 0) {
                     const client = clients.find(c => String(c.id) === String(survey.client_id));
                     companyId = client?.company_id;
                   }
-
-                  // Now lookup the company name
                   if (companyId && companies.length > 0) {
                     const company = companies.find(co => String(co.id) === String(companyId));
-                    // Debug output
                     if (!company) {
                       console.log('Company not found for companyId:', companyId, 'companies:', companies);
                     }
                     return company?.company_name || '—';
                   }
-                  // Debug output
                   if (!companyId) {
                     console.log('No companyId found for survey:', survey);
                   }
@@ -530,11 +562,18 @@ export default function SimulatorDashboard() {
               <div className="flex gap-4 text-xs mt-1">
                 <span>Target N: <strong>{survey.target_n ?? '—'}</strong></span>
                 <span>Completed N: <strong>{survey.actual_completed_n ?? survey.completed_n ?? 0}</strong></span>
+                <span>Re-runs: <strong>{survey.rerun_n ?? 0}</strong></span>
               </div>
-              <Button className="mt-2 text-sm px-3 py-1">
-                <Link href={`/simulator/${survey.id}/general`}>
-                  Edit Survey →
-                </Link>
+              <Button className="mt-2 text-sm px-3 py-1"
+                onClick={() => {
+                  if (survey.survey_mode === 'matrix') {
+                    window.location.href = `/matrix/${survey.id}/general`;
+                  } else {
+                    window.location.href = `/simulator/${survey.id}/general`;
+                  }
+                }}
+              >
+                Edit Survey →
               </Button>
             </CardContent>
           </Card>

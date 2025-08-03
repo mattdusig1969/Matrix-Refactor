@@ -12,6 +12,7 @@ const navItems = [
     { label: "Clients", href: "/simulator/clients" },
     { label: "Surveys", href: "/simulator/surveys" },
     { label: "Reports", href: "/simulator/reports" },
+    { label: "Panel", href: "/admin/panel" },
     { label: "Admin", href: "/admin/users" },
 ];
 
