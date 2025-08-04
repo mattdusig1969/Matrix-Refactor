@@ -2,12 +2,330 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Phone, ArrowRight, DollarSign, Trophy, Users, Zap } from 'lucide-react'
+import { supabase } from '../../lib/supabase-client'
+import bcrypt from 'bcryptjs'
 
 export default function HomePage() {
+  const router = useRouter()
   const [isLoginMode, setIsLoginMode] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [loginType, setLoginType] = useState<'mobile' | 'email'>('mobile')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    password: '',
+    country: 'United States',
+    language: 'English'
+  })
+
+  // Country-specific configurations
+  const countryConfigs = {
+    'United States': {
+      code: 'US',
+      flag: '🇺🇸',
+      dialCode: '+1',
+      mobilePattern: /^\+1\s?\(?[0-9]{3}\)?\s?[0-9]{3}-?[0-9]{4}$/,
+      mobileExample: '+1 (555) 123-4567',
+      emailDomains: ['.com', '.org', '.net', '.edu', '.gov']
+    },
+    'Canada': {
+      code: 'CA',
+      flag: '🇨🇦',
+      dialCode: '+1',
+      mobilePattern: /^\+1\s?\(?[0-9]{3}\)?\s?[0-9]{3}-?[0-9]{4}$/,
+      mobileExample: '+1 (416) 123-4567',
+      emailDomains: ['.ca', '.com', '.org', '.net']
+    },
+    'United Kingdom': {
+      code: 'GB',
+      flag: '🇬🇧',
+      dialCode: '+44',
+      mobilePattern: /^\+44\s?[0-9]{4}\s?[0-9]{6}$/,
+      mobileExample: '+44 7123 456789',
+      emailDomains: ['.uk', '.co.uk', '.com', '.org']
+    },
+    'Australia': {
+      code: 'AU',
+      flag: '🇦🇺',
+      dialCode: '+61',
+      mobilePattern: /^\+61\s?[0-9]{3}\s?[0-9]{3}\s?[0-9]{3}$/,
+      mobileExample: '+61 412 345 678',
+      emailDomains: ['.au', '.com.au', '.com', '.org']
+    }
+  }
+
+  const currentCountryConfig = countryConfigs[formData.country as keyof typeof countryConfigs]
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  // Auto-format mobile number when country changes
+  const handleCountryChange = (country: string) => {
+    const newConfig = countryConfigs[country as keyof typeof countryConfigs]
+    const currentMobile = formData.mobile
+    
+    // If user has entered a mobile number, try to reformat it for the new country
+    if (currentMobile && !currentMobile.startsWith(newConfig.dialCode)) {
+      // Remove any existing country code and reformat
+      const cleanNumber = currentMobile.replace(/^\+\d+\s?/, '')
+      const newMobile = newConfig.dialCode + ' ' + cleanNumber
+      setFormData(prev => ({
+        ...prev,
+        country,
+        mobile: newMobile
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        country
+      }))
+    }
+  }
+
+  // Auto-add country code when mobile field is focused
+  const handleMobileFocus = () => {
+    if (!formData.mobile) {
+      setFormData(prev => ({
+        ...prev,
+        mobile: currentCountryConfig.dialCode + ' '
+      }))
+    }
+  }
+
+  // Validate mobile format
+  const validateMobile = (mobile: string) => {
+    if (!mobile) return false
+    return currentCountryConfig.mobilePattern.test(mobile)
+  }
+
+  // Validate email format
+  const validateEmail = (email: string) => {
+    if (!email) return false
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailPattern.test(email)
+  }
+
+  const getCountryId = (countryName: string) => {
+    const countryMap: { [key: string]: string } = {
+      'United States': 'a2b5820b-9ea7-4024-aa37-29aeae64dcfc',
+      'Canada': 'b3c6831c-0eb8-5135-bb48-40afbf75aedf',
+      'United Kingdom': 'c4d7942d-1fc9-6246-cc59-51b0c086bfef',
+      'Australia': 'd5e8053e-20da-7357-dd6a-62c1d197c0f0'
+    }
+    return countryMap[countryName] || countryMap['United States']
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log('Form submitted, isLoginMode:', isLoginMode)
+    console.log('Form data:', formData)
+    setLoading(true)
+    setError('')
+
+    try {
+      if (isLoginMode) {
+        console.log('Attempting login...')
+        console.log('Environment:', process.env.NODE_ENV)
+        console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+        
+        // Login logic - Try Supabase auth first
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        })
+
+        if (error) {
+          console.error('Supabase auth login error:', error)
+          console.error('Error details:', {
+            message: error.message,
+            status: error.status,
+            name: error.name
+          })
+          
+          // Fallback: Try authenticating against panelists table
+          console.log('Trying fallback authentication against panelists table...')
+          const { data: panelistData, error: panelistError } = await supabase
+            .from('panelists')
+            .select('id, email, password_hash, first_name, last_name')
+            .eq('email', formData.email)
+            .single()
+
+          if (panelistError || !panelistData) {
+            console.error('Panelist lookup error:', panelistError)
+            console.error('Panelist lookup details:', {
+              error: panelistError?.message,
+              code: panelistError?.code,
+              details: panelistError?.details
+            })
+            setError('Invalid login credentials. Please check your email and password.')
+            return
+          }
+
+          // Check password against stored hash
+          const passwordMatch = await bcrypt.compare(formData.password, panelistData.password_hash || '')
+          
+          if (!passwordMatch) {
+            console.error('Password does not match')
+            setError('Invalid login credentials. Please check your email and password.')
+            return
+          }
+
+          console.log('Fallback authentication successful')
+          // Store user info in localStorage for dashboard to use
+          localStorage.setItem('fallback_auth_user', JSON.stringify({
+            id: panelistData.id,
+            email: panelistData.email,
+            first_name: panelistData.first_name,
+            last_name: panelistData.last_name,
+            auth_method: 'panelists_table'
+          }))
+          
+          console.log('Redirecting to dashboard with fallback auth')
+          router.push('/dashboard')
+          return
+        }
+
+        console.log('Supabase auth login successful, redirecting to dashboard')
+        // Redirect to dashboard on successful login
+        router.push('/dashboard')
+      } else {
+        console.log('Attempting registration...')
+        
+        // Validation for registration
+        if (!formData.firstName.trim()) {
+          setError('First name is required')
+          return
+        }
+        if (!formData.lastName.trim()) {
+          setError('Last name is required')
+          return
+        }
+        if (!formData.email.trim()) {
+          setError('Email address is required')
+          return
+        }
+        if (!validateEmail(formData.email)) {
+          setError('Please enter a valid email address')
+          return
+        }
+        if (!formData.mobile.trim()) {
+          setError('Mobile number is required')
+          return
+        }
+        if (!validateMobile(formData.mobile)) {
+          setError(`Please enter a valid mobile number for ${formData.country} (e.g., ${currentCountryConfig.mobileExample})`)
+          return
+        }
+        if (!formData.password.trim()) {
+          setError('Password is required')
+          return
+        }
+        if (formData.password.length < 6) {
+          setError('Password must be at least 6 characters long')
+          return
+        }
+
+        // Registration logic - disable email confirmation
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: undefined, // Disable email confirmation
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              mobile: formData.mobile,
+              country: formData.country,
+              language: formData.language
+            }
+          }
+        })
+
+        if (error) {
+          console.error('Registration error:', error)
+          setError(error.message)
+          return
+        }
+
+        console.log('Registration successful, user data:', data.user)
+
+        if (data.user) {
+          console.log('Creating panelist record...')
+          // Hash the password before storing
+          const saltRounds = 12
+          const hashedPassword = await bcrypt.hash(formData.password, saltRounds)
+          
+          // Create panelist record with correct fields based on the table structure
+          const { error: panelistError } = await supabase
+            .from('panelists')
+            .insert({
+              id: data.user.id,
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              mobile: formData.mobile,
+              password_hash: hashedPassword,
+              country_id: getCountryId(formData.country),
+              language: formData.language,
+              is_verified: true
+            })
+
+          if (panelistError) {
+            console.error('Error creating panelist record:', panelistError)
+            setError('Account created but profile setup failed. Please contact support.')
+            return
+          }
+
+          console.log('Panelist record created successfully')
+
+          console.log('Creating signup bonus...')
+          // Create initial earnings record for signup bonus
+          const { error: earningsError } = await supabase
+            .from('panelist_earnings')
+            .insert({
+              panelist_id: data.user.id,
+              transaction_type: 'earning',
+              amount: 5.00,
+              description: 'Welcome bonus for joining Earnly',
+              source: 'signup_bonus',
+              status: 'completed'
+            })
+
+          if (earningsError) {
+            console.error('Error creating signup bonus record:', earningsError)
+            // Don't fail registration for bonus error, just log it
+          } else {
+            console.log('Signup bonus created successfully')
+          }
+
+          console.log('Registration complete, redirecting to dashboard')
+          // Clear any errors and redirect directly to dashboard
+          setError('')
+          setLoading(false)
+          console.log('About to navigate to dashboard...')
+          router.push('/dashboard')
+        } else {
+          console.error('No user data received from Supabase signup')
+          setError('Registration failed. Please try again.')
+        }
+      }
+    } catch (error) {
+      console.error('Authentication error:', error)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const toggleMode = () => {
     setIsLoginMode(!isLoginMode)
@@ -127,78 +445,156 @@ export default function HomePage() {
                 <p className="text-gray-600 mt-2">
                   {isLoginMode 
                     ? 'Sign in to continue earning rewards' 
-                    : 'Create your account and earn $5 instantly'
+                    : 'Create your account with both email and mobile number'
                   }
                 </p>
               </div>
 
-              <form className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {!isLoginMode && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        First Name
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="John"
-                      />
+                  <>
+                    {/* Name Fields */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.firstName}
+                          onChange={(e) => handleInputChange('firstName', e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="John"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.lastName}
+                          onChange={(e) => handleInputChange('lastName', e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Doe"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Country and Language */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Country
+                        </label>
+                        <select 
+                          value={formData.country}
+                          onChange={(e) => handleCountryChange(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="United States">🇺🇸 United States</option>
+                          <option value="Canada">🇨🇦 Canada</option>
+                          <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                          <option value="Australia">🇦🇺 Australia</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Language
+                        </label>
+                        <select 
+                          value={formData.language}
+                          onChange={(e) => handleInputChange('language', e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="English">English</option>
+                          <option value="Spanish">Spanish</option>
+                          <option value="French">French</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Email and Mobile Fields for Registration (Both Required) */}
+                {!isLoginMode ? (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-700 flex items-center">
+                        <Mail className="h-4 w-4 mr-1" />
+                        <Phone className="h-4 w-4 mr-2" />
+                        Both email and mobile are required for account verification and survey notifications
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Last Name
+                        <Mail className="h-4 w-4 inline mr-1" />
+                        Email Address *
                       </label>
                       <input
-                        type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Doe"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          formData.email && !validateEmail(formData.email) 
+                            ? 'border-red-300 bg-red-50' 
+                            : 'border-gray-300'
+                        }`}
+                        placeholder="your@email.com"
+                        required
                       />
+                      {formData.email && !validateEmail(formData.email) && (
+                        <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Phone className="h-4 w-4 inline mr-1" />
+                        Mobile Number * 
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({currentCountryConfig.flag} {currentCountryConfig.dialCode})
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="tel"
+                          value={formData.mobile}
+                          onChange={(e) => handleInputChange('mobile', e.target.value)}
+                          onFocus={handleMobileFocus}
+                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                            formData.mobile && !validateMobile(formData.mobile) 
+                              ? 'border-red-300 bg-red-50' 
+                              : 'border-gray-300'
+                          }`}
+                          placeholder={currentCountryConfig.mobileExample}
+                          required
+                        />
+                      </div>
+                      {formData.mobile && !validateMobile(formData.mobile) && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Please use format: {currentCountryConfig.mobileExample}
+                        </p>
+                      )}
                     </div>
                   </div>
-                )}
-
-                {/* Login Type Toggle for Registration */}
-                {!isLoginMode && (
-                  <div className="flex space-x-2 bg-gray-100 rounded-lg p-1">
-                    <button
-                      type="button"
-                      onClick={() => setLoginType('mobile')}
-                      className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                        loginType === 'mobile'
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span>Mobile</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLoginType('email')}
-                      className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                        loginType === 'email'
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <Mail className="h-4 w-4" />
-                      <span>Email</span>
-                    </button>
+                ) : (
+                  /* Email Input for Login (Single Field) */
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="your@email.com"
+                      required
+                    />
                   </div>
                 )}
-
-                {/* Email/Mobile Input */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {(isLoginMode || loginType === 'email') ? 'Email' : 'Mobile Number'}
-                  </label>
-                  <input
-                    type={loginType === 'email' ? 'email' : 'tel'}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder={loginType === 'email' ? 'your@email.com' : '+1 (555) 123-4567'}
-                  />
-                </div>
 
                 {/* Password */}
                 <div>
@@ -208,8 +604,11 @@ export default function HomePage() {
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
                       placeholder="Enter your password"
+                      required
                     />
                     <button
                       type="button"
@@ -221,40 +620,27 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Country and Language for Registration */}
-                {!isLoginMode && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Country
-                      </label>
-                      <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option>United States</option>
-                        <option>Canada</option>
-                        <option>United Kingdom</option>
-                        <option>Australia</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Language
-                      </label>
-                      <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option>English</option>
-                        <option>Spanish</option>
-                        <option>French</option>
-                      </select>
-                    </div>
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    {error}
                   </div>
                 )}
 
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>{isLoginMode ? 'Sign In' : 'Create Account & Earn $5'}</span>
-                  <ArrowRight className="h-5 w-5" />
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <span>{isLoginMode ? 'Sign In' : 'Create Account & Earn $5'}</span>
+                      <ArrowRight className="h-5 w-5" />
+                    </>
+                  )}
                 </button>
 
                 {/* Terms for Registration */}
