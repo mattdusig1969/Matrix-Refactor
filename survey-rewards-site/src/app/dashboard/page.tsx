@@ -112,16 +112,33 @@ export default function DashboardPage() {
       console.log('Auth session:', session)
       
       // Check for fallback authentication if no Supabase session
+      let hasAuth = !!session
       const fallbackAuth = localStorage.getItem('fallback_auth_user')
+      const registrationAuth = localStorage.getItem('registration_user')
       
-      if (!session && !fallbackAuth) {
-        console.log('No session or fallback auth found, redirecting to home')
+      if (!session) {
+        // Check for registration auth first (more recent)
+        if (registrationAuth) {
+          console.log('Found registration auth')
+          hasAuth = true
+        } else if (fallbackAuth) {
+          console.log('Found fallback auth')
+          hasAuth = true
+        }
+      }
+      
+      if (!hasAuth) {
+        console.log('No session or auth found, redirecting to home')
         router.push('/')
         return
       }
       
       if (fallbackAuth && !session) {
         console.log('Using fallback authentication:', fallbackAuth)
+      }
+      
+      if (registrationAuth && !session) {
+        console.log('Using registration authentication:', registrationAuth)
       }
       
       // Load the saved active tab from localStorage
@@ -311,21 +328,46 @@ export default function DashboardPage() {
       
       // Check for fallback authentication if no Supabase user
       if (!user) {
-        const fallbackAuth = localStorage.getItem('fallback_auth_user')
-        if (fallbackAuth) {
+        // First check for recently registered user
+        const registrationAuth = localStorage.getItem('registration_user')
+        if (registrationAuth) {
           try {
-            const fallbackUser = JSON.parse(fallbackAuth)
-            console.log('Using fallback auth user:', fallbackUser)
-            userEmail = fallbackUser.email
+            const registrationUser = JSON.parse(registrationAuth)
+            console.log('Using registration auth user:', registrationUser)
+            userEmail = registrationUser.email
+            // Clear the registration flag after first use
+            if (registrationUser.just_registered) {
+              localStorage.setItem('registration_user', JSON.stringify({
+                ...registrationUser,
+                just_registered: false
+              }))
+            }
           } catch (e) {
-            console.error('Error parsing fallback auth:', e)
+            console.error('Error parsing registration auth:', e)
+          }
+        }
+        
+        // Then check for fallback authentication
+        if (!userEmail) {
+          const fallbackAuth = localStorage.getItem('fallback_auth_user')
+          if (fallbackAuth) {
+            try {
+              const fallbackUser = JSON.parse(fallbackAuth)
+              console.log('Using fallback auth user:', fallbackUser)
+              userEmail = fallbackUser.email
+            } catch (e) {
+              console.error('Error parsing fallback auth:', e)
+            }
           }
         }
       }
       
       if (!userEmail) {
         console.log('No authenticated user or fallback found')
-        router.push('/')
+        // Give a bit more time for session to establish before redirecting
+        setTimeout(() => {
+          router.push('/')
+        }, 500)
         return null
       }
 

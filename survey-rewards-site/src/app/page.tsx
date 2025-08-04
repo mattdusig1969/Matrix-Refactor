@@ -311,9 +311,24 @@ export default function HomePage() {
           console.log('Registration complete, redirecting to dashboard')
           // Clear any errors and redirect directly to dashboard
           setError('')
+          
+          // Store the user session info in localStorage for immediate access
+          localStorage.setItem('registration_user', JSON.stringify({
+            id: data.user.id,
+            email: formData.email,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            auth_method: 'supabase_auth',
+            just_registered: true
+          }))
+          
           setLoading(false)
           console.log('About to navigate to dashboard...')
-          router.push('/dashboard')
+          
+          // Small delay to ensure session is properly established
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 100)
         } else {
           console.error('No user data received from Supabase signup')
           setError('Registration failed. Please try again.')
