@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "outputDirectory": ".next",
+  "redirects": [
+    {
+      "source": "/login",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/register",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
+}
