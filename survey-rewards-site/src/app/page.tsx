@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Phone, ArrowRight, DollarSign, Trophy, Users, Zap } from 'lucide-react'
@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs'
 
 export default function HomePage() {
   const router = useRouter()
+  const formRef = useRef<HTMLDivElement>(null)
   const [isLoginMode, setIsLoginMode] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [loginType, setLoginType] = useState<'mobile' | 'email'>('mobile')
@@ -74,32 +75,17 @@ export default function HomePage() {
     const newConfig = countryConfigs[country as keyof typeof countryConfigs]
     const currentMobile = formData.mobile
     
-    // If user has entered a mobile number, try to reformat it for the new country
-    if (currentMobile && !currentMobile.startsWith(newConfig.dialCode)) {
-      // Remove any existing country code and reformat
-      const cleanNumber = currentMobile.replace(/^\+\d+\s?/, '')
-      const newMobile = newConfig.dialCode + ' ' + cleanNumber
-      setFormData(prev => ({
-        ...prev,
-        country,
-        mobile: newMobile
-      }))
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        country
-      }))
-    }
-  }
-
-  // Auto-add country code when mobile field is focused
-  const handleMobileFocus = () => {
-    if (!formData.mobile) {
-      setFormData(prev => ({
-        ...prev,
-        mobile: currentCountryConfig.dialCode + ' '
-      }))
-    }
+    // Extract just the number part without any country code
+    const cleanNumber = currentMobile.replace(/^\+\d+\s?/, '').trim()
+    
+    // Always format with the new country code
+    const newMobile = cleanNumber ? newConfig.dialCode + ' ' + cleanNumber : newConfig.dialCode + ' '
+    
+    setFormData(prev => ({
+      ...prev,
+      country,
+      mobile: newMobile
+    }))
   }
 
   // Validate mobile format
@@ -265,47 +251,92 @@ export default function HomePage() {
           const saltRounds = 12
           const hashedPassword = await bcrypt.hash(formData.password, saltRounds)
           
-          // Create panelist record with correct fields based on the table structure
-          const { error: panelistError } = await supabase
+          // Check if panelist record already exists
+          const { data: existingPanelist } = await supabase
             .from('panelists')
-            .insert({
-              id: data.user.id,
-              email: formData.email,
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              mobile: formData.mobile,
-              password_hash: hashedPassword,
-              country_id: getCountryId(formData.country),
-              language: formData.language,
-              is_verified: true
-            })
+            .select('id')
+            .eq('id', data.user.id)
+            .single()
 
-          if (panelistError) {
-            console.error('Error creating panelist record:', panelistError)
-            setError('Account created but profile setup failed. Please contact support.')
-            return
+          if (existingPanelist) {
+            console.log('Panelist record already exists, updating...')
+            // Update existing record
+            const { error: panelistError } = await supabase
+              .from('panelists')
+              .update({
+                email: formData.email,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                mobile: formData.mobile,
+                password_hash: hashedPassword,
+                country_id: getCountryId(formData.country),
+                language: formData.language,
+                is_verified: true
+              })
+              .eq('id', data.user.id)
+
+            if (panelistError) {
+              console.error('Error updating panelist record:', panelistError)
+              setError('Account created but profile setup failed. Please contact support.')
+              return
+            }
+          } else {
+            console.log('Creating new panelist record...')
+            // Create new panelist record
+            const { error: panelistError } = await supabase
+              .from('panelists')
+              .insert({
+                id: data.user.id,
+                email: formData.email,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                mobile: formData.mobile,
+                password_hash: hashedPassword,
+                country_id: getCountryId(formData.country),
+                language: formData.language,
+                is_verified: true
+              })
+
+            if (panelistError) {
+              console.error('Error creating panelist record:', panelistError)
+              setError('Account created but profile setup failed. Please contact support.')
+              return
+            }
           }
 
-          console.log('Panelist record created successfully')
+          console.log('Panelist record created/updated successfully')
 
-          console.log('Creating signup bonus...')
-          // Create initial earnings record for signup bonus
-          const { error: earningsError } = await supabase
+          console.log('Checking for existing signup bonus...')
+          // Check if signup bonus already exists
+          const { data: existingBonus } = await supabase
             .from('panelist_earnings')
-            .insert({
-              panelist_id: data.user.id,
-              transaction_type: 'earning',
-              amount: 5.00,
-              description: 'Welcome bonus for joining Earnly',
-              source: 'signup_bonus',
-              status: 'completed'
-            })
+            .select('id')
+            .eq('panelist_id', data.user.id)
+            .eq('source', 'signup_bonus')
+            .single()
 
-          if (earningsError) {
-            console.error('Error creating signup bonus record:', earningsError)
-            // Don't fail registration for bonus error, just log it
+          if (!existingBonus) {
+            console.log('Creating signup bonus...')
+            // Create initial earnings record for signup bonus
+            const { error: earningsError } = await supabase
+              .from('panelist_earnings')
+              .insert({
+                panelist_id: data.user.id,
+                transaction_type: 'earning',
+                amount: 5.00,
+                description: 'Welcome bonus for joining Earnly',
+                source: 'signup_bonus',
+                status: 'completed'
+              })
+
+            if (earningsError) {
+              console.error('Error creating signup bonus record:', earningsError)
+              // Don't fail registration for bonus error, just log it
+            } else {
+              console.log('Signup bonus created successfully')
+            }
           } else {
-            console.log('Signup bonus created successfully')
+            console.log('Signup bonus already exists, skipping creation')
           }
 
           console.log('Registration complete, redirecting to dashboard')
@@ -344,6 +375,16 @@ export default function HomePage() {
 
   const toggleMode = () => {
     setIsLoginMode(!isLoginMode)
+    
+    // Scroll to form on mobile/tablet devices
+    setTimeout(() => {
+      if (formRef.current) {
+        formRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        })
+      }
+    }, 100) // Small delay to allow state to update first
   }
 
   return (
@@ -452,7 +493,7 @@ export default function HomePage() {
 
           {/* Right Side - Auth Form */}
           <div className="lg:pl-12">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <div ref={formRef} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900">
                   {isLoginMode ? 'Welcome Back' : 'Get Started Today'}
@@ -567,25 +608,36 @@ export default function HomePage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Phone className="h-4 w-4 inline mr-1" />
-                        Mobile Number * 
-                        <span className="text-xs text-gray-500 ml-1">
-                          ({currentCountryConfig.flag} {currentCountryConfig.dialCode})
-                        </span>
+                        Mobile Number *
                       </label>
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          value={formData.mobile}
-                          onChange={(e) => handleInputChange('mobile', e.target.value)}
-                          onFocus={handleMobileFocus}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                            formData.mobile && !validateMobile(formData.mobile) 
-                              ? 'border-red-300 bg-red-50' 
-                              : 'border-gray-300'
-                          }`}
-                          placeholder={currentCountryConfig.mobileExample}
-                          required
-                        />
+                      <div className="flex items-center space-x-2">
+                        {/* Fixed Country Code Display */}
+                        <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg px-3 py-3 min-w-[100px]">
+                          <span className="text-sm font-medium text-gray-700">
+                            {currentCountryConfig.flag} {currentCountryConfig.dialCode}
+                          </span>
+                        </div>
+                        {/* Mobile Number Input */}
+                        <div className="flex-1">
+                          <input
+                            type="tel"
+                            value={formData.mobile.replace(currentCountryConfig.dialCode, '').trim()}
+                            onChange={(e) => {
+                              // Keep only the user's input (don't strip out their numbers!)
+                              const userInput = e.target.value
+                              // Format with country code
+                              const fullNumber = userInput ? currentCountryConfig.dialCode + ' ' + userInput : currentCountryConfig.dialCode + ' '
+                              handleInputChange('mobile', fullNumber)
+                            }}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                              formData.mobile && !validateMobile(formData.mobile) 
+                                ? 'border-red-300 bg-red-50' 
+                                : 'border-gray-300'
+                            }`}
+                            placeholder={currentCountryConfig.mobileExample.replace(currentCountryConfig.dialCode, '').trim()}
+                            required
+                          />
+                        </div>
                       </div>
                       {formData.mobile && !validateMobile(formData.mobile) && (
                         <p className="text-xs text-red-600 mt-1">

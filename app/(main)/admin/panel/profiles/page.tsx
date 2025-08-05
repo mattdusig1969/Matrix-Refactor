@@ -46,6 +46,14 @@ export default function ProfilesPage() {
     fetchData()
   }, [statusFilter])
 
+  // Handle click outside modal to close
+  const handleModalClick = (e: React.MouseEvent, closeModal: () => void) => {
+    // If clicked on the backdrop (not the modal content), close the modal
+    if (e.target === e.currentTarget) {
+      closeModal()
+    }
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -605,7 +613,10 @@ export default function ProfilesPage() {
 
       {/* Create Survey Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => handleModalClick(e, () => setShowCreateModal(false))}
+        >
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Create Profile Survey</h2>
@@ -721,7 +732,10 @@ A: Xiaomi`}
 
       {/* Survey View Modal */}
       {showSurveyModal && selectedSurvey && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => handleModalClick(e, () => setShowSurveyModal(false))}
+        >
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">{selectedSurvey.name}</h2>
@@ -768,7 +782,10 @@ A: Xiaomi`}
 
       {/* Edit Survey Modal */}
       {showEditModal && editingSurvey && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => handleModalClick(e, () => setShowEditModal(false))}
+        >
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Edit Survey: {editingSurvey.name}</h2>
@@ -958,7 +975,10 @@ A: Xiaomi`}
 
       {/* Add Question Modal */}
       {showAddQuestion && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => handleModalClick(e, () => setShowAddQuestion(false))}
+        >
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Add New Question</h2>

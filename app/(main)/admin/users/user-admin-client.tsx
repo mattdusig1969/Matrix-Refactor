@@ -46,7 +46,15 @@ function NewUserModal({ isOpen, onClose, onSave, initialData }) {
   };
 
   return (
-    <div className={cn("fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity", isOpen ? "opacity-100" : "opacity-0 pointer-events-none")}>
+    <div 
+      className={cn("fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity", isOpen ? "opacity-100" : "opacity-0 pointer-events-none")}
+      onClick={(e) => {
+        // If clicked on the backdrop (not the modal content), close the modal
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
       <div className={cn("bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl transform transition-all", isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0")}>
         <h2 className="text-2xl font-bold mb-6">{isEditing ? 'Edit User' : 'Add New User'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">

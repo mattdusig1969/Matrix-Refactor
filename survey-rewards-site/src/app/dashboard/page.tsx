@@ -2008,11 +2008,12 @@ export default function DashboardPage() {
     const progress = (answeredCount / activeSurvey.parsed_questions.length) * 100
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
+          {/* Fixed Header */}
+          <div className="p-6 border-b border-gray-200 flex-shrink-0">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold text-gray-900">{activeSurvey.name}</h3>
               <button 
                 onClick={() => setShowSurveyModal(false)}
@@ -2023,7 +2024,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Progress Bar */}
-            <div className="mb-6">
+            <div>
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>Question {currentQuestionIndex + 1} of {activeSurvey.parsed_questions.length}</span>
                 <span>{Math.round(progress) || 0}% Complete</span>
@@ -2035,16 +2036,19 @@ export default function DashboardPage() {
                 ></div>
               </div>
             </div>
+          </div>
 
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto p-6">
             {/* Question */}
             {currentQuestion && (
-              <div className="mb-6">
+              <div>
                 <h4 className="text-lg font-medium text-gray-900 mb-4">
                   {currentQuestion.question_text}
                 </h4>
 
                 {/* Answer Options */}
-                <div className="space-y-3">
+                <div className="space-y-3 pb-4">
                   {(() => {
                     try {
                       console.log('Current question data:', currentQuestion)
@@ -2197,22 +2201,55 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Navigation */}
-            <div className="flex justify-between">
+          {/* Fixed Footer with Navigation */}
+          <div className="border-t border-gray-200 p-6 bg-gray-50 flex-shrink-0">
+            <div className="flex justify-between items-center">
               <button
                 onClick={previousQuestion}
                 disabled={currentQuestionIndex === 0}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Previous
+                <span>←</span>
+                <span>Previous</span>
               </button>
+              
+              {/* Scroll indicator when there are many options */}
+              <div className="text-center text-sm text-gray-500">
+                {currentQuestion && (() => {
+                  try {
+                    let options = []
+                    if (typeof currentQuestion.answer_option === 'string') {
+                      options = JSON.parse(currentQuestion.answer_option)
+                    } else if (Array.isArray(currentQuestion.answer_option)) {
+                      options = currentQuestion.answer_option
+                    }
+                    
+                    // Show scroll hint if there are many options
+                    if (options.length > 6) {
+                      return (
+                        <div className="flex items-center space-x-1">
+                          <span>↑</span>
+                          <span>Scroll to see all options</span>
+                          <span>↓</span>
+                        </div>
+                      )
+                    }
+                  } catch (e) {
+                    // Ignore parsing errors
+                  }
+                  return null
+                })()}
+              </div>
+              
               <button
                 onClick={nextQuestion}
                 disabled={!surveyResponses[currentQuestion?.question_number]}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                {currentQuestionIndex === activeSurvey.parsed_questions.length - 1 ? 'Complete Survey' : 'Next'}
+                <span>{currentQuestionIndex === activeSurvey.parsed_questions.length - 1 ? 'Complete Survey' : 'Next'}</span>
+                {currentQuestionIndex < activeSurvey.parsed_questions.length - 1 && <span>→</span>}
               </button>
             </div>
           </div>
